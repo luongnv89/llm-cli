@@ -1,0 +1,51 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code
+.claude/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+
+# Build artifacts
+*.o
+*.a
+*.dylib
+
+# Python (if any scripts added)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+env/
+
+# Test outputs
+/test-output/
+/tmp/
+
+# Local configuration (user-specific)
+.env
+.env.local
+*.local
+
+# Downloaded models (stored in HuggingFace cache)
+*.gguf
+
+# Benchmark reports (generated, not committed)
+# Users can choose to commit these if they want
+# llm-cli/benchmarks/

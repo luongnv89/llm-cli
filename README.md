@@ -107,7 +107,9 @@ llamacpp-mac/
 │   ├── completions/         # Shell completions (bash/zsh)
 │   ├── install.sh           # Installation script
 │   └── README.md            # Detailed documentation
-├── run-llm.sh               # Legacy script (deprecated)
+├── archive/                 # Deprecated scripts
+├── CONTRIBUTING.md          # Contribution guidelines
+├── LICENSE                  # MIT License
 └── README.md                # This file
 ```
 
@@ -145,6 +147,10 @@ After running `llm-cli bench`, you'll get detailed Markdown reports:
 | Text Generation (tg) | 119.68 t/s |
 ```
 
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
 ## License
 
-MIT
+MIT - See [LICENSE](LICENSE) for details.
