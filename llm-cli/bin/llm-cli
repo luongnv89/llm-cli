@@ -1,0 +1,226 @@
+#!/bin/bash
+# llm-cli: Local LLM management tool
+# Main entry point and command dispatcher
+
+set -euo pipefail
+
+# Get script directory (resolves symlinks)
+get_script_dir() {
+    local source="${BASH_SOURCE[0]}"
+    while [ -L "$source" ]; do
+        local dir="$(cd -P "$(dirname "$source")" && pwd)"
+        source="$(readlink "$source")"
+        [[ $source != /* ]] && source="$dir/$source"
+    done
+    cd -P "$(dirname "$source")" && pwd
+}
+
+SCRIPT_DIR="$(get_script_dir)"
+LIB_DIR="$(dirname "$SCRIPT_DIR")/lib"
+
+# Source library files
+source "$LIB_DIR/config.sh"
+source "$LIB_DIR/utils.sh"
+source "$LIB_DIR/models.sh"
+source "$LIB_DIR/download.sh"
+source "$LIB_DIR/chat.sh"
+source "$LIB_DIR/benchmark.sh"
+source "$LIB_DIR/stats.sh"
+
+# Show main help
+show_help() {
+    cat << EOF
+${BOLD}llm-cli${RESET} - Local LLM management tool v${LLM_CLI_VERSION}
+
+${BOLD}USAGE:${RESET}
+    llm-cli <command> [options] [arguments]
+
+${BOLD}COMMANDS:${RESET}
+    ${CYAN}search${RESET}, s <query>       Search HuggingFace for GGUF models
+    ${CYAN}download${RESET}, d <repo>      Download a model from HuggingFace
+    ${CYAN}chat${RESET}, c, run [N]        Start conversation with a model
+    ${CYAN}models${RESET}                  Model management commands
+    ${CYAN}bench${RESET}, benchmark        Benchmark models
+    ${CYAN}stats${RESET}                   Show usage statistics
+    ${CYAN}config${RESET}                  Show/edit configuration
+
+${BOLD}MODEL MANAGEMENT:${RESET}
+    llm-cli models list         List all cached models
+    llm-cli models info <N>     Show detailed model info
+    llm-cli models delete <N>   Delete a cached model
+    llm-cli models update <N>   Update a cached model
+
+${BOLD}BENCHMARKING:${RESET}
+    llm-cli bench [N]           Benchmark a single model
+    llm-cli bench --all         Benchmark all cached models
+    llm-cli bench --batch 1,2,3 Benchmark specific models
+
+${BOLD}OPTIONS:${RESET}
+    -h, --help                  Show this help message
+    -v, --version               Show version
+    --no-color                  Disable colored output
+
+${BOLD}EXAMPLES:${RESET}
+    llm-cli search llama-3.2
+    llm-cli download bartowski/Llama-3.2-3B-Instruct-GGUF
+    llm-cli chat
+    llm-cli chat 1
+    llm-cli models list
+    llm-cli bench --all
+    llm-cli stats
+
+${BOLD}CONFIGURATION:${RESET}
+    Config file: ~/.config/llm-cli/config
+    Data dir:    ~/.local/share/llm-cli/
+
+${BOLD}ENVIRONMENT VARIABLES:${RESET}
+    LLM_CLI_THREADS       Override thread count
+    LLM_CLI_GPU_LAYERS    Override GPU layers
+    LLM_CLI_CONTEXT_SIZE  Override context size
+    NO_COLOR              Disable colored output
+
+EOF
+}
+
+# Show version
+show_version() {
+    echo "llm-cli version $LLM_CLI_VERSION"
+}
+
+# Handle models subcommand
+cmd_models() {
+    local subcmd="${1:-list}"
+    shift || true
+
+    case "$subcmd" in
+        list|ls)
+            cmd_models_list "$@"
+            ;;
+        info|i)
+            cmd_models_info "$@"
+            ;;
+        delete|rm)
+            cmd_models_delete "$@"
+            ;;
+        update|up)
+            cmd_models_update "$@"
+            ;;
+        -h|--help)
+            echo "Usage: llm-cli models <subcommand> [args]"
+            echo ""
+            echo "Subcommands:"
+            echo "  list, ls        List all cached models"
+            echo "  info <N>        Show detailed model info"
+            echo "  delete, rm <N>  Delete a cached model"
+            echo "  update, up <N>  Update a cached model"
+            ;;
+        *)
+            log_error "Unknown models subcommand: $subcmd"
+            echo "Run 'llm-cli models --help' for usage"
+            exit 1
+            ;;
+    esac
+}
+
+# Handle config subcommand
+cmd_config() {
+    local subcmd="${1:-show}"
+    shift || true
+
+    case "$subcmd" in
+        show|"")
+            show_config
+            ;;
+        --edit|-e|edit)
+            edit_config
+            ;;
+        -h|--help)
+            echo "Usage: llm-cli config [--edit]"
+            echo ""
+            echo "Options:"
+            echo "  (none)    Show current configuration"
+            echo "  --edit    Open config file in editor"
+            ;;
+        *)
+            show_config
+            ;;
+    esac
+}
+
+# Main dispatcher
+main() {
+    # Initialize configuration
+    init_config
+    load_config
+    setup_colors
+
+    # Parse global options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            -v|--version)
+                show_version
+                exit 0
+                ;;
+            --no-color)
+                NO_COLOR=1
+                setup_colors
+                shift
+                ;;
+            -*)
+                log_error "Unknown option: $1"
+                echo "Run 'llm-cli --help' for usage"
+                exit 1
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+
+    # Get command
+    local command="${1:-}"
+    shift || true
+
+    # Dispatch to command handler
+    case "$command" in
+        "")
+            show_help
+            ;;
+        search|s)
+            cmd_search "$@"
+            ;;
+        download|d|get)
+            cmd_download "$@"
+            ;;
+        chat|c|run)
+            cmd_chat "$@"
+            ;;
+        models|model)
+            cmd_models "$@"
+            ;;
+        bench|benchmark)
+            cmd_bench "$@"
+            ;;
+        stats|statistics)
+            cmd_stats "$@"
+            ;;
+        config)
+            cmd_config "$@"
+            ;;
+        help)
+            show_help
+            ;;
+        *)
+            log_error "Unknown command: $command"
+            echo "Run 'llm-cli --help' for usage"
+            exit 1
+            ;;
+    esac
+}
+
+# Run main
+main "$@"
