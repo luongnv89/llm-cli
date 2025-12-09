@@ -98,11 +98,15 @@ llm-cli bench --all
 # Benchmark specific models
 llm-cli bench --batch 1,2,3
 
+# Save reports to custom directory
+llm-cli bench --output ./my-reports
+llm-cli bench --all -o /tmp/benchmarks
+
 # View saved benchmark reports
 llm-cli bench --reports
 ```
 
-Benchmark results are automatically saved as Markdown reports in `~/.local/share/llm-cli/benchmarks/`. Reports include:
+Benchmark results are automatically saved as Markdown reports. By default, reports are saved to `~/.local/share/llm-cli/benchmarks/`, but you can specify a custom directory with `--output`. Reports include:
 - Model information (name, path, size)
 - System information (chip, memory, llama.cpp version)
 - Benchmark configuration (threads, GPU layers, tokens)

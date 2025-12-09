@@ -2,12 +2,24 @@
 # llm-cli: Benchmarking functions
 # Run performance benchmarks on models
 
-# Benchmark reports directory
+# Benchmark reports directory (can be overridden by --output)
 BENCH_REPORTS_DIR="${DATA_DIR}/benchmarks"
+BENCH_OUTPUT_DIR=""  # Custom output directory if specified
+
+# Get the effective reports directory
+get_reports_dir() {
+    if [ -n "$BENCH_OUTPUT_DIR" ]; then
+        echo "$BENCH_OUTPUT_DIR"
+    else
+        echo "$BENCH_REPORTS_DIR"
+    fi
+}
 
 # Initialize benchmark reports directory
 init_bench_reports() {
-    mkdir -p "$BENCH_REPORTS_DIR"
+    local dir
+    dir=$(get_reports_dir)
+    mkdir -p "$dir"
 }
 
 # Generate report filename
@@ -35,7 +47,10 @@ get_system_info() {
         echo "- **Chip**: $(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo 'Unknown')"
         echo "- **Memory**: $(( $(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1024 / 1024 / 1024 )) GB"
     fi
-    echo "- **llama.cpp version**: $(llama-cli --version 2>&1 | head -1 || echo 'Unknown')"
+    # Get llama.cpp version
+    local llama_version
+    llama_version=$(llama-cli --version 2>&1 | grep -oE 'version: [0-9]+ \([a-f0-9]+\)' | head -1 || echo 'Unknown')
+    echo "- **llama.cpp version**: $llama_version"
     echo ""
 }
 
@@ -43,20 +58,24 @@ get_system_info() {
 list_benchmark_reports() {
     init_bench_reports
 
+    local reports_dir
+    reports_dir=$(get_reports_dir)
     local reports
-    reports=$(ls -1t "$BENCH_REPORTS_DIR"/*.md 2>/dev/null || true)
+    reports=$(ls -1t "$reports_dir"/*.md 2>/dev/null || true)
 
     if [ -z "$reports" ]; then
         log_info "No benchmark reports found."
         echo ""
         echo "Run a benchmark to generate a report:"
         echo "  llm-cli bench"
+        echo ""
+        echo "Reports location: $reports_dir"
         return 0
     fi
 
     print_header "Saved Benchmark Reports"
     echo ""
-    echo "Location: $BENCH_REPORTS_DIR"
+    echo "Location: $reports_dir"
     echo ""
 
     local i=1
@@ -101,7 +120,10 @@ list_benchmark_reports() {
 
 # Benchmark command dispatcher
 cmd_bench() {
-    local arg="${1:-}"
+    local args=("$@")
+    local action=""
+    local model_num=""
+    local batch_arg=""
 
     # Check dependencies
     check_dependencies
@@ -110,41 +132,84 @@ cmd_bench() {
         die "llama-bench not found. Install with: brew install llama.cpp"
     fi
 
-    case "$arg" in
-        --all|-a)
+    # Parse arguments
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --output|-o)
+                shift
+                if [ -z "${1:-}" ]; then
+                    die "Missing path for --output option"
+                fi
+                BENCH_OUTPUT_DIR="$1"
+                # Validate the path
+                if [ ! -d "$BENCH_OUTPUT_DIR" ]; then
+                    mkdir -p "$BENCH_OUTPUT_DIR" || die "Cannot create output directory: $BENCH_OUTPUT_DIR"
+                fi
+                shift
+                ;;
+            --all|-a)
+                action="all"
+                shift
+                ;;
+            --batch|-b)
+                action="batch"
+                shift
+                batch_arg="${1:-}"
+                [ -n "$batch_arg" ] && shift
+                ;;
+            --reports|-r)
+                action="reports"
+                shift
+                ;;
+            --help|-h)
+                action="help"
+                shift
+                ;;
+            -*)
+                die "Unknown option: $1"
+                ;;
+            *)
+                model_num="$1"
+                shift
+                ;;
+        esac
+    done
+
+    # Execute action
+    case "$action" in
+        all)
             bench_all
             ;;
-        --batch|-b)
-            shift
-            bench_batch "$@"
+        batch)
+            bench_batch "$batch_arg"
             ;;
-        --reports|-r)
+        reports)
             list_benchmark_reports
             ;;
-        --help|-h)
+        help)
             echo "Usage: llm-cli bench [options] [model_number]"
             echo ""
             echo "Options:"
             echo "  <N>              Benchmark model N"
             echo "  --all, -a        Benchmark all cached models"
             echo "  --batch 1,2,3    Benchmark specific models"
+            echo "  --output, -o     Specify output directory for reports"
             echo "  --reports, -r    List saved benchmark reports"
             echo "  --help, -h       Show this help"
             echo ""
             echo "Examples:"
-            echo "  llm-cli bench           Interactive model selection"
-            echo "  llm-cli bench 1         Benchmark first model"
-            echo "  llm-cli bench --all     Benchmark all models"
+            echo "  llm-cli bench              Interactive model selection"
+            echo "  llm-cli bench 1            Benchmark first model"
+            echo "  llm-cli bench --all        Benchmark all models"
             echo "  llm-cli bench --batch 1,3,5"
-            echo "  llm-cli bench --reports View saved reports"
+            echo "  llm-cli bench --reports    View saved reports"
+            echo "  llm-cli bench -o ./reports Benchmark and save to ./reports/"
+            echo "  llm-cli bench --all -o /tmp/bench"
             echo ""
-            echo "Reports are saved to: ${DATA_DIR}/benchmarks/"
-            ;;
-        "")
-            bench_single
+            echo "Default reports location: ${DATA_DIR}/benchmarks/"
             ;;
         *)
-            bench_single "$arg"
+            bench_single "$model_num"
             ;;
     esac
 }
@@ -288,9 +353,11 @@ save_all_benchmark_report() {
 
     init_bench_reports
 
+    local reports_dir
+    reports_dir=$(get_reports_dir)
     local timestamp
     timestamp=$(date +"%Y%m%d_%H%M%S")
-    local report_file="${BENCH_REPORTS_DIR}/benchmark_all_models_${timestamp}.md"
+    local report_file="${reports_dir}/benchmark_all_models_${timestamp}.md"
 
     {
         echo "# Benchmark Report - All Models"
@@ -397,9 +464,6 @@ bench_batch() {
 
         results+=("${MODEL_NAMES[$idx]}|${MODEL_SIZES[$idx]}|$pp|$tg")
 
-        # Record in stats
-        record_benchmark_result "${MODEL_NAMES[$idx]}"
-
         ((i++))
     done
 
@@ -408,8 +472,14 @@ bench_batch() {
     log_success "Batch benchmark complete!"
     print_legend
 
-    # Save batch report
+    # Save batch report first
     save_batch_benchmark_report "$batch_arg" "${results[@]}"
+
+    # Record in stats (non-fatal if fails)
+    for num in "${model_nums[@]}"; do
+        local idx=$((num - 1))
+        record_benchmark_result "${MODEL_NAMES[$idx]}" || true
+    done
 }
 
 # Save batch benchmark report
@@ -420,9 +490,11 @@ save_batch_benchmark_report() {
 
     init_bench_reports
 
+    local reports_dir
+    reports_dir=$(get_reports_dir)
     local timestamp
     timestamp=$(date +"%Y%m%d_%H%M%S")
-    local report_file="${BENCH_REPORTS_DIR}/benchmark_batch_${batch_arg}_${timestamp}.md"
+    local report_file="${reports_dir}/benchmark_batch_${batch_arg}_${timestamp}.md"
 
     {
         echo "# Benchmark Report - Batch ($batch_arg)"
@@ -481,24 +553,34 @@ run_benchmark() {
     echo -e "${BOLD}Model:${RESET} $model_name"
     echo ""
 
-    # Capture benchmark output
-    local bench_output
-    bench_output=$(llama-bench \
+    # Create a temp file to capture output
+    local tmp_output
+    tmp_output=$(mktemp)
+
+    # Run benchmark, capture stdout to file while displaying to user
+    # llama-bench outputs results to stdout (markdown by default)
+    # and progress/diagnostics to stderr
+    llama-bench \
         -m "$model_path" \
         -t "$THREADS" \
         -ngl "$GPU_LAYERS" \
         -p 512 \
         -n 128 \
         -r "$reps" \
-        --progress 2>&1 | tee /dev/stderr)
+        --progress 2>&1 | tee "$tmp_output"
 
-    # Record benchmark in stats
-    record_benchmark_result "$model_name"
+    # Read captured output
+    local bench_output
+    bench_output=$(cat "$tmp_output")
+    rm -f "$tmp_output"
 
-    # Save report if requested
+    # Save report first (before stats, in case stats fails)
     if [ "$save_report" = "true" ]; then
         save_benchmark_report "$model_name" "$model_path" "$model_size" "$bench_output" "$reps"
     fi
+
+    # Record benchmark in stats (non-fatal if fails)
+    record_benchmark_result "$model_name" || true
 }
 
 # Save benchmark report to file
@@ -511,13 +593,17 @@ save_benchmark_report() {
 
     init_bench_reports
 
+    local reports_dir
+    reports_dir=$(get_reports_dir)
     local report_file
-    report_file="${BENCH_REPORTS_DIR}/$(generate_report_filename "$model_name")"
+    report_file="${reports_dir}/$(generate_report_filename "$model_name")"
 
     # Extract performance metrics from output
+    # Format: | model | size | params | backend | threads | test | t/s |
+    # e.g., | llama 1B Q8_0 | 1.22 GiB | 1.24 B | Metal,BLAS | 8 | pp512 | 3591.88 ± 6.30 |
     local pp_speed tg_speed
-    pp_speed=$(echo "$bench_output" | grep -oE 'pp[^|]+\|[^t]+t/s' | tail -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
-    tg_speed=$(echo "$bench_output" | grep -oE 'tg[^|]+\|[^t]+t/s' | tail -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
+    pp_speed=$(echo "$bench_output" | grep -E '\|\s*pp[0-9]+\s*\|' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
+    tg_speed=$(echo "$bench_output" | grep -E '\|\s*tg[0-9]+\s*\|' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
 
     # Generate report
     {
