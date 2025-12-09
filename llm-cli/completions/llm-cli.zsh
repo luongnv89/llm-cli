@@ -54,6 +54,7 @@ _llm-cli() {
                     _arguments \
                         '--all[Benchmark all models]' \
                         '--batch[Benchmark specific models]:models:' \
+                        '--reports[List saved benchmark reports]' \
                         '--help[Show help]' \
                         '*:model number:'
                     ;;

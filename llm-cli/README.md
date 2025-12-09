@@ -97,7 +97,17 @@ llm-cli bench --all
 
 # Benchmark specific models
 llm-cli bench --batch 1,2,3
+
+# View saved benchmark reports
+llm-cli bench --reports
 ```
+
+Benchmark results are automatically saved as Markdown reports in `~/.local/share/llm-cli/benchmarks/`. Reports include:
+- Model information (name, path, size)
+- System information (chip, memory, llama.cpp version)
+- Benchmark configuration (threads, GPU layers, tokens)
+- Performance results (prompt processing, text generation speeds)
+- Raw benchmark output
 
 ### Statistics
 
@@ -152,6 +162,7 @@ Following XDG Base Directory specification:
 
 - **Config**: `~/.config/llm-cli/config`
 - **Data**: `~/.local/share/llm-cli/stats.json`
+- **Benchmarks**: `~/.local/share/llm-cli/benchmarks/` (Markdown reports)
 - **Cache**: `~/.cache/llm-cli/`
 - **Models**: `~/.cache/huggingface/hub/` (standard HuggingFace cache)
 

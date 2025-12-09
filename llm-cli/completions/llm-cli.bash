@@ -7,7 +7,7 @@ _llm_cli() {
 
     local commands="search download chat models bench stats config help"
     local models_subcmds="list info delete update"
-    local bench_opts="--all --batch --help"
+    local bench_opts="--all --batch --reports --help"
 
     case "${words[1]}" in
         search|s)
@@ -33,7 +33,7 @@ _llm_cli() {
             if [[ "$cur" == -* ]]; then
                 COMPREPLY=( $(compgen -W "$bench_opts" -- "$cur") )
             else
-                COMPREPLY=( $(compgen -W "1 2 3 4 5 --all --batch" -- "$cur") )
+                COMPREPLY=( $(compgen -W "1 2 3 4 5 --all --batch --reports" -- "$cur") )
             fi
             return
             ;;

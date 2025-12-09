@@ -2,6 +2,103 @@
 # llm-cli: Benchmarking functions
 # Run performance benchmarks on models
 
+# Benchmark reports directory
+BENCH_REPORTS_DIR="${DATA_DIR}/benchmarks"
+
+# Initialize benchmark reports directory
+init_bench_reports() {
+    mkdir -p "$BENCH_REPORTS_DIR"
+}
+
+# Generate report filename
+# Format: benchmark_<model-short-name>_<date>_<time>.md
+generate_report_filename() {
+    local model_name="$1"
+    local timestamp
+    timestamp=$(date +"%Y%m%d_%H%M%S")
+
+    # Extract short model name (last part of repo/model, sanitized)
+    local short_name
+    short_name=$(echo "$model_name" | sed 's|.*/||' | sed 's|[^a-zA-Z0-9._-]|_|g' | cut -c1-40)
+
+    echo "benchmark_${short_name}_${timestamp}.md"
+}
+
+# Get system info for report
+get_system_info() {
+    echo "## System Information"
+    echo ""
+    echo "- **Date**: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "- **Host**: $(hostname)"
+    echo "- **OS**: $(uname -s) $(uname -r)"
+    if [ "$(uname -s)" = "Darwin" ]; then
+        echo "- **Chip**: $(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo 'Unknown')"
+        echo "- **Memory**: $(( $(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1024 / 1024 / 1024 )) GB"
+    fi
+    echo "- **llama.cpp version**: $(llama-cli --version 2>&1 | head -1 || echo 'Unknown')"
+    echo ""
+}
+
+# List saved benchmark reports
+list_benchmark_reports() {
+    init_bench_reports
+
+    local reports
+    reports=$(ls -1t "$BENCH_REPORTS_DIR"/*.md 2>/dev/null || true)
+
+    if [ -z "$reports" ]; then
+        log_info "No benchmark reports found."
+        echo ""
+        echo "Run a benchmark to generate a report:"
+        echo "  llm-cli bench"
+        return 0
+    fi
+
+    print_header "Saved Benchmark Reports"
+    echo ""
+    echo "Location: $BENCH_REPORTS_DIR"
+    echo ""
+
+    local i=1
+    declare -a REPORT_FILES
+
+    while IFS= read -r report; do
+        [ -z "$report" ] && continue
+        REPORT_FILES[$i]="$report"
+
+        local filename
+        filename=$(basename "$report")
+
+        # Extract info from filename
+        local size
+        size=$(du -h "$report" | cut -f1)
+
+        echo -e "  ${CYAN}$i)${RESET} $filename ${DIM}[$size]${RESET}"
+        ((i++))
+    done <<< "$reports"
+
+    local count=$((i - 1))
+    echo ""
+    read -rp "View report (1-$count) or 'q' to quit: " choice
+
+    [ "$choice" = "q" ] || [ "$choice" = "Q" ] && return 0
+
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt $count ]; then
+        die "Invalid selection: $choice"
+    fi
+
+    local selected_report="${REPORT_FILES[$choice]}"
+    echo ""
+    print_line "=" 60
+
+    # Display report with less or cat
+    if command -v less &>/dev/null; then
+        less "$selected_report"
+    else
+        cat "$selected_report"
+    fi
+}
+
 # Benchmark command dispatcher
 cmd_bench() {
     local arg="${1:-}"
@@ -21,6 +118,9 @@ cmd_bench() {
             shift
             bench_batch "$@"
             ;;
+        --reports|-r)
+            list_benchmark_reports
+            ;;
         --help|-h)
             echo "Usage: llm-cli bench [options] [model_number]"
             echo ""
@@ -28,13 +128,17 @@ cmd_bench() {
             echo "  <N>              Benchmark model N"
             echo "  --all, -a        Benchmark all cached models"
             echo "  --batch 1,2,3    Benchmark specific models"
+            echo "  --reports, -r    List saved benchmark reports"
             echo "  --help, -h       Show this help"
             echo ""
             echo "Examples:"
-            echo "  llm-cli bench        Interactive model selection"
-            echo "  llm-cli bench 1      Benchmark first model"
-            echo "  llm-cli bench --all  Benchmark all models"
+            echo "  llm-cli bench           Interactive model selection"
+            echo "  llm-cli bench 1         Benchmark first model"
+            echo "  llm-cli bench --all     Benchmark all models"
             echo "  llm-cli bench --batch 1,3,5"
+            echo "  llm-cli bench --reports View saved reports"
+            echo ""
+            echo "Reports are saved to: ${DATA_DIR}/benchmarks/"
             ;;
         "")
             bench_single
@@ -119,6 +223,7 @@ bench_all() {
     print_line "=" 60
 
     local results=()
+    local raw_outputs=()
 
     for i in "${!MODEL_NAMES[@]}"; do
         local num=$((i + 1))
@@ -127,10 +232,10 @@ bench_all() {
         print_line "-" 60
 
         local result
-        result=$(run_benchmark_raw "$i" 2)
+        result=$(run_benchmark_raw "$i" 2 | tee /dev/stderr)
 
         # Store result for summary
-        results+=("${MODEL_NAMES[$i]}|$result")
+        results+=("${MODEL_NAMES[$i]}|${MODEL_SIZES[$i]}|$result")
 
         echo ""
     done
@@ -143,24 +248,91 @@ bench_all() {
 
     printf "%-50s %12s %12s\n" "Model" "Prompt (t/s)" "Gen (t/s)"
     print_line "-" 74
-    for entry in "${results[@]}"; do
-        local name="${entry%%|*}"
-        local data="${entry#*|}"
 
-        # Truncate name if too long
-        if [ ${#name} -gt 48 ]; then
-            name="${name:0:45}..."
+    # Prepare summary data for report
+    local summary_lines=()
+
+    for entry in "${results[@]}"; do
+        local name size data
+        name="${entry%%|*}"
+        local rest="${entry#*|}"
+        size="${rest%%|*}"
+        data="${rest#*|}"
+
+        # Truncate name if too long for display
+        local display_name="$name"
+        if [ ${#display_name} -gt 48 ]; then
+            display_name="${display_name:0:45}..."
         fi
 
         local pp tg
         pp=$(echo "$data" | grep -oE 'pp[^|]+\|[^t]+t/s' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
         tg=$(echo "$data" | grep -oE 'tg[^|]+\|[^t]+t/s' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
 
-        printf "%-50s %12s %12s\n" "$name" "$pp" "$tg"
+        printf "%-50s %12s %12s\n" "$display_name" "$pp" "$tg"
+
+        # Store for report
+        summary_lines+=("$name|$size|$pp|$tg")
     done
 
     echo ""
     print_legend
+
+    # Save combined report
+    save_all_benchmark_report "${summary_lines[@]}"
+}
+
+# Save combined benchmark report for all models
+save_all_benchmark_report() {
+    local summary_lines=("$@")
+
+    init_bench_reports
+
+    local timestamp
+    timestamp=$(date +"%Y%m%d_%H%M%S")
+    local report_file="${BENCH_REPORTS_DIR}/benchmark_all_models_${timestamp}.md"
+
+    {
+        echo "# Benchmark Report - All Models"
+        echo ""
+        get_system_info
+        echo "## Benchmark Configuration"
+        echo ""
+        echo "- **Threads**: $THREADS"
+        echo "- **GPU Layers**: $GPU_LAYERS"
+        echo "- **Prompt Tokens**: 512"
+        echo "- **Generation Tokens**: 128"
+        echo "- **Repetitions**: 2"
+        echo ""
+        echo "## Results Summary"
+        echo ""
+        echo "| Model | Size | Prompt (t/s) | Generation (t/s) |"
+        echo "|-------|------|--------------|------------------|"
+
+        for line in "${summary_lines[@]}"; do
+            local name size pp tg
+            name="${line%%|*}"
+            local rest="${line#*|}"
+            size="${rest%%|*}"
+            rest="${rest#*|}"
+            pp="${rest%%|*}"
+            tg="${rest#*|}"
+
+            echo "| $name | $size | $pp | $tg |"
+        done
+
+        echo ""
+        echo "## Legend"
+        echo ""
+        echo "- **pp (Prompt Processing)**: How fast the model processes input tokens (higher is better)"
+        echo "- **tg (Text Generation)**: How fast the model generates output tokens (higher is better)"
+        echo ""
+        echo "---"
+        echo "*Generated by llm-cli v${LLM_CLI_VERSION}*"
+    } > "$report_file"
+
+    echo ""
+    log_success "Report saved: $report_file"
 }
 
 # Benchmark specific models by number
@@ -207,6 +379,7 @@ bench_batch() {
     echo ""
     print_line "=" 60
 
+    local results=()
     local i=1
     for num in "${model_nums[@]}"; do
         local idx=$((num - 1))
@@ -214,7 +387,18 @@ bench_batch() {
         echo -e "${BOLD}[$i/$batch_count] ${MODEL_NAMES[$idx]}${RESET}"
         print_line "-" 60
 
-        run_benchmark "$idx" 2
+        local result
+        result=$(run_benchmark_raw "$idx" 2 | tee /dev/stderr)
+
+        # Extract metrics
+        local pp tg
+        pp=$(echo "$result" | grep -oE 'pp[^|]+\|[^t]+t/s' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
+        tg=$(echo "$result" | grep -oE 'tg[^|]+\|[^t]+t/s' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
+
+        results+=("${MODEL_NAMES[$idx]}|${MODEL_SIZES[$idx]}|$pp|$tg")
+
+        # Record in stats
+        record_benchmark_result "${MODEL_NAMES[$idx]}"
 
         ((i++))
     done
@@ -223,31 +407,156 @@ bench_batch() {
     echo ""
     log_success "Batch benchmark complete!"
     print_legend
+
+    # Save batch report
+    save_batch_benchmark_report "$batch_arg" "${results[@]}"
+}
+
+# Save batch benchmark report
+save_batch_benchmark_report() {
+    local batch_arg="$1"
+    shift
+    local results=("$@")
+
+    init_bench_reports
+
+    local timestamp
+    timestamp=$(date +"%Y%m%d_%H%M%S")
+    local report_file="${BENCH_REPORTS_DIR}/benchmark_batch_${batch_arg}_${timestamp}.md"
+
+    {
+        echo "# Benchmark Report - Batch ($batch_arg)"
+        echo ""
+        get_system_info
+        echo "## Benchmark Configuration"
+        echo ""
+        echo "- **Threads**: $THREADS"
+        echo "- **GPU Layers**: $GPU_LAYERS"
+        echo "- **Prompt Tokens**: 512"
+        echo "- **Generation Tokens**: 128"
+        echo "- **Repetitions**: 2"
+        echo ""
+        echo "## Results Summary"
+        echo ""
+        echo "| Model | Size | Prompt (t/s) | Generation (t/s) |"
+        echo "|-------|------|--------------|------------------|"
+
+        for line in "${results[@]}"; do
+            local name size pp tg
+            name="${line%%|*}"
+            local rest="${line#*|}"
+            size="${rest%%|*}"
+            rest="${rest#*|}"
+            pp="${rest%%|*}"
+            tg="${rest#*|}"
+
+            echo "| $name | $size | $pp | $tg |"
+        done
+
+        echo ""
+        echo "## Legend"
+        echo ""
+        echo "- **pp (Prompt Processing)**: How fast the model processes input tokens (higher is better)"
+        echo "- **tg (Text Generation)**: How fast the model generates output tokens (higher is better)"
+        echo ""
+        echo "---"
+        echo "*Generated by llm-cli v${LLM_CLI_VERSION}*"
+    } > "$report_file"
+
+    echo ""
+    log_success "Report saved: $report_file"
 }
 
 # Run benchmark and display results
 run_benchmark() {
     local idx="$1"
     local reps="${2:-3}"
+    local save_report="${3:-true}"
 
     local model_path="${MODEL_PATHS[$idx]}"
     local model_name="${MODEL_NAMES[$idx]}"
+    local model_size="${MODEL_SIZES[$idx]}"
 
     echo ""
     echo -e "${BOLD}Model:${RESET} $model_name"
     echo ""
 
-    llama-bench \
+    # Capture benchmark output
+    local bench_output
+    bench_output=$(llama-bench \
         -m "$model_path" \
         -t "$THREADS" \
         -ngl "$GPU_LAYERS" \
         -p 512 \
         -n 128 \
         -r "$reps" \
-        --progress
+        --progress 2>&1 | tee /dev/stderr)
 
     # Record benchmark in stats
     record_benchmark_result "$model_name"
+
+    # Save report if requested
+    if [ "$save_report" = "true" ]; then
+        save_benchmark_report "$model_name" "$model_path" "$model_size" "$bench_output" "$reps"
+    fi
+}
+
+# Save benchmark report to file
+save_benchmark_report() {
+    local model_name="$1"
+    local model_path="$2"
+    local model_size="$3"
+    local bench_output="$4"
+    local reps="$5"
+
+    init_bench_reports
+
+    local report_file
+    report_file="${BENCH_REPORTS_DIR}/$(generate_report_filename "$model_name")"
+
+    # Extract performance metrics from output
+    local pp_speed tg_speed
+    pp_speed=$(echo "$bench_output" | grep -oE 'pp[^|]+\|[^t]+t/s' | tail -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
+    tg_speed=$(echo "$bench_output" | grep -oE 'tg[^|]+\|[^t]+t/s' | tail -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
+
+    # Generate report
+    {
+        echo "# Benchmark Report"
+        echo ""
+        echo "## Model"
+        echo ""
+        echo "- **Name**: $model_name"
+        echo "- **Path**: $model_path"
+        echo "- **Size**: $model_size"
+        echo ""
+        get_system_info
+        echo "## Benchmark Configuration"
+        echo ""
+        echo "- **Threads**: $THREADS"
+        echo "- **GPU Layers**: $GPU_LAYERS"
+        echo "- **Prompt Tokens**: 512"
+        echo "- **Generation Tokens**: 128"
+        echo "- **Repetitions**: $reps"
+        echo ""
+        echo "## Results"
+        echo ""
+        echo "| Metric | Value |"
+        echo "|--------|-------|"
+        echo "| Prompt Processing (pp) | $pp_speed t/s |"
+        echo "| Text Generation (tg) | $tg_speed t/s |"
+        echo ""
+        echo "## Raw Output"
+        echo ""
+        echo '```'
+        echo "$bench_output"
+        echo '```'
+        echo ""
+        echo "---"
+        echo "*Generated by llm-cli v${LLM_CLI_VERSION}*"
+    } > "$report_file"
+
+    echo ""
+    log_success "Report saved: $report_file"
 }
 
 # Run benchmark and return raw output (for parsing)
