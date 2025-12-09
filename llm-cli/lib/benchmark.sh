@@ -4,7 +4,7 @@
 
 # Benchmark command dispatcher
 cmd_bench() {
-    local arg="$1"
+    local arg="${1:-}"
 
     # Check dependencies
     check_dependencies
@@ -47,7 +47,7 @@ cmd_bench() {
 
 # Benchmark a single model
 bench_single() {
-    local model_num="$1"
+    local model_num="${1:-}"
 
     if ! scan_cached_models; then
         die "No cached models found"
@@ -165,7 +165,7 @@ bench_all() {
 
 # Benchmark specific models by number
 bench_batch() {
-    local batch_arg="$1"
+    local batch_arg="${1:-}"
 
     if [ -z "$batch_arg" ]; then
         echo "Usage: llm-cli bench --batch 1,2,3"
