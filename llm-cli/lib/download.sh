@@ -162,6 +162,46 @@ cmd_download() {
     do_download "$repo"
 }
 
+# Group GGUF files by quantization type
+# For split models like Q5_K_M-00001-of-00002.gguf, groups all parts together
+group_gguf_files() {
+    local files="$1"
+    declare -A groups
+
+    while IFS= read -r file; do
+        [ -z "$file" ] && continue
+
+        # Extract quantization type (handle split files and directory prefixes)
+        local base_name
+        base_name=$(basename "$file")
+
+        # Remove split suffixes like -00001-of-00002
+        local group_key
+        group_key=$(echo "$base_name" | sed -E 's/-[0-9]+-of-[0-9]+\.gguf$/.gguf/')
+
+        # Also handle directory prefixes like Q5_K_M/filename.gguf
+        local dir_prefix=""
+        if [[ "$file" == */* ]]; then
+            dir_prefix=$(dirname "$file")/
+        fi
+
+        echo "${dir_prefix}${group_key}"
+    done <<< "$files" | sort -u
+}
+
+# Get all files for a quantization group (handles split models)
+get_group_files() {
+    local all_files="$1"
+    local group="$2"
+
+    # Remove .gguf extension to create pattern
+    local pattern
+    pattern=$(echo "$group" | sed 's/\.gguf$//')
+
+    # Match exact file or split parts
+    echo "$all_files" | grep -E "^${pattern}(-[0-9]+-of-[0-9]+)?\.gguf$" | sort
+}
+
 # Internal download function
 do_download() {
     local repo="$1"
@@ -193,50 +233,95 @@ do_download() {
         exit 1
     fi
 
-    # Count available GGUF files
-    local gguf_count
-    gguf_count=$(echo "$gguf_files" | wc -l | tr -d ' ')
+    # Check if this is a split model (has -00001-of- pattern)
+    local has_splits=false
+    if echo "$gguf_files" | grep -qE '\-[0-9]+-of-[0-9]+\.gguf'; then
+        has_splits=true
+    fi
 
     echo ""
-    echo -e "${BOLD}Available GGUF files:${RESET}"
+    echo -e "${BOLD}Available quantizations:${RESET}"
     echo ""
 
+    # Group files by quantization
     local i=1
-    declare -a GGUF_OPTIONS
-    while IFS= read -r file; do
-        [ -z "$file" ] && continue
-        GGUF_OPTIONS[$i]="$file"
-        echo -e "  ${CYAN}$i)${RESET} $file"
-        ((i++))
-    done <<< "$gguf_files"
+    declare -a QUANT_OPTIONS
+    declare -a QUANT_FILES
+
+    if [ "$has_splits" = true ]; then
+        # For split models, show grouped quantizations
+        local groups
+        groups=$(group_gguf_files "$gguf_files")
+
+        while IFS= read -r group; do
+            [ -z "$group" ] && continue
+
+            # Get all files in this group
+            local group_files
+            group_files=$(get_group_files "$gguf_files" "$group")
+            local file_count
+            file_count=$(echo "$group_files" | wc -l | tr -d ' ')
+
+            # Extract quant type for display
+            local quant_type
+            quant_type=$(echo "$group" | grep -oE 'Q[0-9]+_K_[A-Z]+|Q[0-9]+_[0-9]+|Q[0-9]+_K|IQ[0-9]+_[A-Z]+|UD-Q[0-9]+_K_[A-Z]+|F16' | head -1 || echo "unknown")
+
+            QUANT_OPTIONS[$i]="$group"
+            QUANT_FILES[$i]="$group_files"
+
+            if [ "$file_count" -gt 1 ]; then
+                echo -e "  ${CYAN}$i)${RESET} $quant_type ${DIM}($file_count parts)${RESET}"
+            else
+                echo -e "  ${CYAN}$i)${RESET} $group"
+            fi
+            ((i++))
+        done <<< "$groups"
+    else
+        # Single files, show directly
+        while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            QUANT_OPTIONS[$i]="$file"
+            QUANT_FILES[$i]="$file"
+            echo -e "  ${CYAN}$i)${RESET} $file"
+            ((i++))
+        done <<< "$gguf_files"
+    fi
 
     echo ""
 
     # Auto-select best quantization
-    local selected_file
-    selected_file=$(select_best_quantization "$gguf_files")
+    local recommended_idx=""
+    for idx in "${!QUANT_OPTIONS[@]}"; do
+        local opt="${QUANT_OPTIONS[$idx]}"
+        for quant in "${QUANT_PRIORITY[@]}"; do
+            if echo "$opt" | grep -qi "$quant"; then
+                recommended_idx=$idx
+                break 2
+            fi
+        done
+    done
 
-    if [ -n "$selected_file" ]; then
-        local quant
-        quant=$(echo "$selected_file" | grep -oE 'Q[0-9]+_K_[A-Z]+|Q[0-9]+_[0-9]+|IQ[0-9]+_[A-Z]+' || echo "default")
-        log_info "Recommended: $selected_file ($quant)"
+    if [ -n "$recommended_idx" ]; then
+        local rec_opt="${QUANT_OPTIONS[$recommended_idx]}"
+        local quant_type
+        quant_type=$(echo "$rec_opt" | grep -oE 'Q[0-9]+_K_[A-Z]+|Q[0-9]+_[0-9]+|Q[0-9]+_K' | head -1 || echo "recommended")
+        log_info "Recommended: $quant_type"
         echo ""
 
-        if confirm "Download recommended file?" "y"; then
-            download_file "$repo" "$selected_file"
+        if confirm "Download recommended ($quant_type)?" "y"; then
+            download_files "$repo" "${QUANT_FILES[$recommended_idx]}"
             return
         fi
     fi
 
     # Manual selection
-    read -rp "Select file to download (1-$((i-1))): " choice
+    read -rp "Select quantization to download (1-$((i-1))): " choice
 
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -ge $i ]; then
         die "Invalid selection"
     fi
 
-    selected_file="${GGUF_OPTIONS[$choice]}"
-    download_file "$repo" "$selected_file"
+    download_files "$repo" "${QUANT_FILES[$choice]}"
 }
 
 # Download a specific file
@@ -249,6 +334,55 @@ download_file() {
     echo ""
 
     if huggingface-cli download "$repo" "$filename"; then
+        echo ""
+        log_success "Download complete!"
+        echo ""
+        echo "Run with:"
+        echo "  llm-cli chat"
+        echo ""
+        echo "Or benchmark:"
+        echo "  llm-cli bench"
+    else
+        die "Download failed"
+    fi
+}
+
+# Download multiple files (for split models)
+download_files() {
+    local repo="$1"
+    local files="$2"
+
+    # Count files
+    local file_count
+    file_count=$(echo "$files" | grep -c '.' || echo 0)
+
+    echo ""
+    if [ "$file_count" -gt 1 ]; then
+        log_info "Downloading $file_count files..."
+    else
+        log_info "Downloading..."
+    fi
+    echo ""
+
+    local success=true
+    local downloaded=0
+
+    while IFS= read -r file; do
+        [ -z "$file" ] && continue
+
+        if [ "$file_count" -gt 1 ]; then
+            ((downloaded++))
+            echo -e "${DIM}[$downloaded/$file_count]${RESET} $file"
+        fi
+
+        if ! huggingface-cli download "$repo" "$file"; then
+            log_error "Failed to download: $file"
+            success=false
+            break
+        fi
+    done <<< "$files"
+
+    if [ "$success" = true ]; then
         echo ""
         log_success "Download complete!"
         echo ""

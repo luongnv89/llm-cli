@@ -113,7 +113,10 @@ confirm() {
     echo -en "${YELLOW}$message ${prompt}${RESET} " >&2
     read -r response
 
-    case "${response,,}" in
+    # Convert to lowercase (compatible with Bash 3.2 on macOS)
+    response=$(echo "$response" | tr '[:upper:]' '[:lower:]')
+
+    case "$response" in
         y|yes) return 0 ;;
         n|no) return 1 ;;
         "")
