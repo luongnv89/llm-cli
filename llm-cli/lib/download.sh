@@ -164,9 +164,9 @@ cmd_download() {
 
 # Group GGUF files by quantization type
 # For split models like Q5_K_M-00001-of-00002.gguf, groups all parts together
+# Bash 3.2 compatible (no associative arrays)
 group_gguf_files() {
     local files="$1"
-    declare -A groups
 
     while IFS= read -r file; do
         [ -z "$file" ] && continue
@@ -181,7 +181,7 @@ group_gguf_files() {
 
         # Also handle directory prefixes like Q5_K_M/filename.gguf
         local dir_prefix=""
-        if [[ "$file" == */* ]]; then
+        if echo "$file" | grep -q '/'; then
             dir_prefix=$(dirname "$file")/
         fi
 
