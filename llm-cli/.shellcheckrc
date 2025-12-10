@@ -1,0 +1,15 @@
+# ShellCheck configuration for llm-cli
+# https://github.com/koalaman/shellcheck/wiki/Directive
+
+# Set shell dialect (bash)
+shell=bash
+
+# Enable all checks by default
+# Disable specific checks below with justification
+
+# SC1091: Not following sourced files - library files are sourced dynamically
+disable=SC1091
+
+# SC2034: Variable appears unused - many variables are defined in one file
+# and used in another after sourcing (modular library design)
+disable=SC2034

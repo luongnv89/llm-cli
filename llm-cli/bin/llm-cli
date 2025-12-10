@@ -7,8 +7,9 @@ set -euo pipefail
 # Get script directory (resolves symlinks)
 get_script_dir() {
     local source="${BASH_SOURCE[0]}"
+    local dir
     while [ -L "$source" ]; do
-        local dir="$(cd -P "$(dirname "$source")" && pwd)"
+        dir="$(cd -P "$(dirname "$source")" && pwd)"
         source="$(readlink "$source")"
         [[ $source != /* ]] && source="$dir/$source"
     done
@@ -29,7 +30,7 @@ source "$LIB_DIR/stats.sh"
 
 # Show main help
 show_help() {
-    cat << EOF
+    cat <<EOF
 ${BOLD}llm-cli${RESET} - Local LLM management tool v${LLM_CLI_VERSION}
 
 ${BOLD}USAGE:${RESET}
@@ -93,19 +94,19 @@ cmd_models() {
     shift || true
 
     case "$subcmd" in
-        list|ls)
+        list | ls)
             cmd_models_list "$@"
             ;;
-        info|i)
+        info | i)
             cmd_models_info "$@"
             ;;
-        delete|rm)
+        delete | rm)
             cmd_models_delete "$@"
             ;;
-        update|up)
+        update | up)
             cmd_models_update "$@"
             ;;
-        -h|--help)
+        -h | --help)
             echo "Usage: llm-cli models <subcommand> [args]"
             echo ""
             echo "Subcommands:"
@@ -128,13 +129,13 @@ cmd_config() {
     shift || true
 
     case "$subcmd" in
-        show|"")
+        show | "")
             show_config
             ;;
-        --edit|-e|edit)
+        --edit | -e | edit)
             edit_config
             ;;
-        -h|--help)
+        -h | --help)
             echo "Usage: llm-cli config [--edit]"
             echo ""
             echo "Options:"
@@ -157,11 +158,11 @@ main() {
     # Parse global options
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -h|--help)
+            -h | --help)
                 show_help
                 exit 0
                 ;;
-            -v|--version)
+            -v | --version)
                 show_version
                 exit 0
                 ;;
@@ -190,22 +191,22 @@ main() {
         "")
             show_help
             ;;
-        search|s)
+        search | s)
             cmd_search "$@"
             ;;
-        download|d|get)
+        download | d | get)
             cmd_download "$@"
             ;;
-        chat|c|run)
+        chat | c | run)
             cmd_chat "$@"
             ;;
-        models|model)
+        models | model)
             cmd_models "$@"
             ;;
-        bench|benchmark)
+        bench | benchmark)
             cmd_bench "$@"
             ;;
-        stats|statistics)
+        stats | statistics)
             cmd_stats "$@"
             ;;
         config)

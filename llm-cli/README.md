@@ -200,6 +200,52 @@ llm-cli/
 └── README.md
 ```
 
+## Development
+
+### Prerequisites
+
+For development, install these additional tools:
+
+```bash
+# Shell script formatter
+brew install shfmt
+
+# Shell script linter
+brew install shellcheck
+
+# Pre-commit hook framework
+pip install pre-commit
+```
+
+### Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/llm-cli.git
+cd llm-cli
+
+# Install pre-commit hooks
+pre-commit install
+```
+
+### Running Quality Checks
+
+```bash
+# Run all checks (same as CI)
+pre-commit run --all-files
+
+# Run individual checks
+shfmt -i 4 -bn -ci -d bin/llm-cli lib/*.sh
+shellcheck --severity=warning bin/llm-cli lib/*.sh
+```
+
+### Code Style
+
+- 4-space indentation
+- Use `set -euo pipefail` for strict error handling
+- Quote all variable expansions
+- Follow existing patterns in `lib/` modules
+
 ## License
 
 MIT

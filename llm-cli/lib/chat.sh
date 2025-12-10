@@ -28,7 +28,7 @@ cmd_chat() {
         print_header "Available Models"
         echo ""
         for i in "${!MODEL_NAMES[@]}"; do
-            echo -e "  ${CYAN}$((i+1)))${RESET} ${MODEL_NAMES[$i]} [${MODEL_SIZES[$i]}]"
+            echo -e "  ${CYAN}$((i + 1)))${RESET} ${MODEL_NAMES[$i]} [${MODEL_SIZES[$i]}]"
         done
         echo ""
 

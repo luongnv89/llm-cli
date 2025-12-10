@@ -1,0 +1,60 @@
+name: QA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Install shfmt
+        run: |
+          SHFMT_VERSION="3.8.0"
+          curl -sS -L "https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/shfmt_v${SHFMT_VERSION}_linux_amd64" -o shfmt
+          chmod +x shfmt
+          sudo mv shfmt /usr/local/bin/
+
+      - name: Check shell script formatting
+        run: |
+          shfmt -i 4 -bn -ci -d bin/llm-cli lib/*.sh install.sh
+
+      - name: Lint shell scripts
+        run: |
+          shellcheck --severity=warning bin/llm-cli lib/*.sh install.sh
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run security-focused ShellCheck
+        run: |
+          # Run ShellCheck with all checks including security-related ones
+          shellcheck --severity=info bin/llm-cli lib/*.sh install.sh
+
+      - name: Check for hardcoded secrets
+        run: |
+          # Simple pattern check for common secret patterns
+          # Returns success (0) if no secrets found, fails if potential secrets detected
+          if grep -rE "(password|secret|api_key|token)\s*=\s*['\"][^'\"]+['\"]" --include="*.sh" bin/ lib/ install.sh 2>/dev/null; then
+            echo "::warning::Potential hardcoded secrets detected"
+            exit 1
+          fi
+          echo "No hardcoded secrets detected"

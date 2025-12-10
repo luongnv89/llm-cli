@@ -1,0 +1,34 @@
+# Pre-commit hooks for llm-cli
+# Install: brew install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: detect-private-key
+
+  # Local hooks for shell scripts (more reliable for extensionless files)
+  - repo: local
+    hooks:
+      - id: shfmt
+        name: shfmt
+        description: Format shell scripts
+        entry: shfmt -i 4 -bn -ci -w
+        language: system
+        files: (bin/llm-cli|lib/.*\.sh|install\.sh)$
+        types: [file]
+
+      - id: shellcheck
+        name: shellcheck
+        description: Lint shell scripts
+        entry: shellcheck --severity=warning
+        language: system
+        files: (bin/llm-cli|lib/.*\.sh|install\.sh)$
+        types: [file]

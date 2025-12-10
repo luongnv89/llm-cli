@@ -43,7 +43,7 @@ init_config() {
     init_directories
 
     if [ ! -f "$CONFIG_FILE" ]; then
-        cat > "$CONFIG_FILE" << 'EOF'
+        cat >"$CONFIG_FILE" <<'EOF'
 # LLM CLI Configuration
 # Edit this file to customize your settings
 

@@ -117,8 +117,8 @@ confirm() {
     response=$(echo "$response" | tr '[:upper:]' '[:lower:]')
 
     case "$response" in
-        y|yes) return 0 ;;
-        n|no) return 1 ;;
+        y | yes) return 0 ;;
+        n | no) return 1 ;;
         "")
             [ "$default" = "y" ] && return 0 || return 1
             ;;
@@ -152,7 +152,7 @@ select_from_list() {
     read -rp "$prompt (1-$count) or 'q' to quit: " choice
 
     case "$choice" in
-        q|Q)
+        q | Q)
             return 0
             ;;
         *)

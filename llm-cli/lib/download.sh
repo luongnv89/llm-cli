@@ -118,7 +118,7 @@ cmd_search() {
         echo ""
 
         ((i++))
-    done <<< "$(echo "$results" | grep -o '"id":"[^"]*"' | sed 's/"id":"//g' | sed 's/"//g')"
+    done <<<"$(echo "$results" | grep -o '"id":"[^"]*"' | sed 's/"id":"//g' | sed 's/"//g')"
 
     local count=$((i - 1))
 
@@ -186,7 +186,7 @@ group_gguf_files() {
         fi
 
         echo "${dir_prefix}${group_key}"
-    done <<< "$files" | sort -u
+    done <<<"$files" | sort -u
 }
 
 # Get all files for a quantization group (handles split models)
@@ -275,7 +275,7 @@ do_download() {
                 echo -e "  ${CYAN}$i)${RESET} $group"
             fi
             ((i++))
-        done <<< "$groups"
+        done <<<"$groups"
     else
         # Single files, show directly
         while IFS= read -r file; do
@@ -284,7 +284,7 @@ do_download() {
             QUANT_FILES[$i]="$file"
             echo -e "  ${CYAN}$i)${RESET} $file"
             ((i++))
-        done <<< "$gguf_files"
+        done <<<"$gguf_files"
     fi
 
     echo ""
@@ -315,7 +315,7 @@ do_download() {
     fi
 
     # Manual selection
-    read -rp "Select quantization to download (1-$((i-1))): " choice
+    read -rp "Select quantization to download (1-$((i - 1))): " choice
 
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -ge $i ]; then
         die "Invalid selection"
@@ -380,7 +380,7 @@ download_files() {
             success=false
             break
         fi
-    done <<< "$files"
+    done <<<"$files"
 
     if [ "$success" = true ]; then
         echo ""

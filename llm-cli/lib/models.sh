@@ -133,7 +133,7 @@ cmd_models_info() {
         # Interactive selection
         echo ""
         for i in "${!MODEL_NAMES[@]}"; do
-            echo -e "  ${CYAN}$((i+1)))${RESET} ${MODEL_NAMES[$i]} [${MODEL_SIZES[$i]}]"
+            echo -e "  ${CYAN}$((i + 1)))${RESET} ${MODEL_NAMES[$i]} [${MODEL_SIZES[$i]}]"
         done
         echo ""
         read -rp "Select model (1-$count): " selection
@@ -184,7 +184,7 @@ cmd_models_delete() {
         # Interactive selection
         echo ""
         for i in "${!MODEL_NAMES[@]}"; do
-            echo -e "  ${CYAN}$((i+1)))${RESET} ${MODEL_NAMES[$i]} [${MODEL_SIZES[$i]}]"
+            echo -e "  ${CYAN}$((i + 1)))${RESET} ${MODEL_NAMES[$i]} [${MODEL_SIZES[$i]}]"
         done
         echo ""
         read -rp "Select model to DELETE (1-$count) or 'q' to quit: " selection
@@ -245,7 +245,7 @@ cmd_models_update() {
         # Interactive selection
         echo ""
         for i in "${!MODEL_NAMES[@]}"; do
-            echo -e "  ${CYAN}$((i+1)))${RESET} ${MODEL_NAMES[$i]} [${MODEL_SIZES[$i]}]"
+            echo -e "  ${CYAN}$((i + 1)))${RESET} ${MODEL_NAMES[$i]} [${MODEL_SIZES[$i]}]"
         done
         echo ""
         read -rp "Select model to UPDATE (1-$count) or 'q' to quit: " selection
@@ -294,7 +294,7 @@ select_model() {
 
     echo ""
     for i in "${!MODEL_NAMES[@]}"; do
-        echo -e "  ${CYAN}$((i+1)))${RESET} ${MODEL_NAMES[$i]} [${MODEL_SIZES[$i]}]"
+        echo -e "  ${CYAN}$((i + 1)))${RESET} ${MODEL_NAMES[$i]} [${MODEL_SIZES[$i]}]"
     done
     echo ""
 

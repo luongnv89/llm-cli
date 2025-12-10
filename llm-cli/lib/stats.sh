@@ -11,7 +11,7 @@ init_stats() {
         now=$(get_timestamp)
 
         if has_jq; then
-            cat > "$STATS_FILE" << EOF
+            cat >"$STATS_FILE" <<EOF
 {
   "version": "1.0",
   "created_at": "$now",
@@ -27,7 +27,7 @@ init_stats() {
 EOF
         else
             # Simple fallback format
-            cat > "$STATS_FILE" << EOF
+            cat >"$STATS_FILE" <<EOF
 {
   "version": "1.0",
   "created_at": "$now",
@@ -60,18 +60,18 @@ record_session() {
         local temp_file="${STATS_FILE}.tmp"
 
         jq --arg model "$model_name" \
-           --arg time "$now" \
-           --arg id "$session_id" \
-           --argjson dur "$duration" \
-           '.summary.total_sessions += 1 |
+            --arg time "$now" \
+            --arg id "$session_id" \
+            --argjson dur "$duration" \
+            '.summary.total_sessions += 1 |
             .summary.total_time_seconds += $dur |
             .models_used[$model] = ((.models_used[$model] // {sessions: 0, time_seconds: 0}) |
                 .sessions += 1 | .time_seconds += $dur | .last_used = $time) |
             .sessions += [{id: $id, model: $model, started_at: $time, duration_seconds: $dur}]' \
-           "$STATS_FILE" > "$temp_file" && mv "$temp_file" "$STATS_FILE"
+            "$STATS_FILE" >"$temp_file" && mv "$temp_file" "$STATS_FILE"
     else
         # Fallback: append to log file
-        echo "SESSION|$now|$session_id|$model_name|$duration" >> "$SESSIONS_LOG"
+        echo "SESSION|$now|$session_id|$model_name|$duration" >>"$SESSIONS_LOG"
 
         # Update simple counters in JSON using sed
         local current_sessions current_time
@@ -106,14 +106,14 @@ record_benchmark_result() {
         local temp_file="${STATS_FILE}.tmp"
 
         jq --arg model "$model_name" \
-           --arg date "$today" \
-           --arg time "$now" \
-           '.summary.total_benchmarks += 1 |
+            --arg date "$today" \
+            --arg time "$now" \
+            '.summary.total_benchmarks += 1 |
             .benchmarks += [{model: $model, date: $date, timestamp: $time}]' \
-           "$STATS_FILE" > "$temp_file" && mv "$temp_file" "$STATS_FILE"
+            "$STATS_FILE" >"$temp_file" && mv "$temp_file" "$STATS_FILE"
     else
         # Fallback: append to log
-        echo "BENCHMARK|$now|$model_name|$pp_score|$tg_score" >> "$SESSIONS_LOG"
+        echo "BENCHMARK|$now|$model_name|$pp_score|$tg_score" >>"$SESSIONS_LOG"
 
         # Update counter
         local current
@@ -132,10 +132,10 @@ cmd_stats() {
     local subcmd="${1:-show}"
 
     case "$subcmd" in
-        --clear|-c|clear)
+        --clear | -c | clear)
             clear_stats
             ;;
-        --help|-h)
+        --help | -h)
             echo "Usage: llm-cli stats [options]"
             echo ""
             echo "Options:"
@@ -217,7 +217,7 @@ show_stats_full() {
             fi
 
             printf "  %-45s %10s %12s\n" "$display_name" "$sessions" "$m_time_fmt"
-        done <<< "$models_used"
+        done <<<"$models_used"
         echo ""
     fi
 
