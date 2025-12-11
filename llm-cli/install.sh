@@ -1,6 +1,7 @@
 #!/bin/bash
 # llm-cli: Installation script
 # Installs llm-cli to user's PATH
+# Supports macOS and Linux (Ubuntu)
 
 set -euo pipefail
 
@@ -18,9 +19,26 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Default install location
 INSTALL_DIR="${HOME}/.local/bin"
 
+# Detect platform
+detect_platform() {
+    local os
+    os=$(uname -s)
+    if [[ "$os" == "Darwin" ]]; then
+        echo "macos"
+    elif [[ "$os" == "Linux" ]] && command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
+        echo "linux-nvidia"
+    else
+        echo "linux-cpu"
+    fi
+}
+
+PLATFORM=$(detect_platform)
+
 echo ""
 echo -e "${BOLD}llm-cli Installer${RESET}"
 echo "=================="
+echo ""
+echo -e "Detected platform: ${CYAN}$PLATFORM${RESET}"
 echo ""
 
 # Check for existing installation
@@ -30,12 +48,60 @@ if command -v llm-cli &>/dev/null; then
     echo ""
 fi
 
+# Pre-flight checks
+echo -e "${CYAN}[1/4]${RESET} Checking dependencies..."
+
+# Check for llama.cpp
+if ! command -v llama-cli &>/dev/null; then
+    echo -e "${YELLOW}[WARN]${RESET} llama-cli not found."
+    echo ""
+    case "$PLATFORM" in
+        macos)
+            echo "Install llama.cpp with Homebrew:"
+            echo "  brew install llama.cpp"
+            ;;
+        linux-nvidia)
+            echo "Build llama.cpp from source with CUDA support:"
+            echo ""
+            echo "  # Install dependencies"
+            echo "  sudo apt update && sudo apt install -y build-essential cmake git"
+            echo ""
+            echo "  # Clone and build with CUDA"
+            echo "  git clone https://github.com/ggerganov/llama.cpp"
+            echo "  cd llama.cpp"
+            echo "  cmake -B build -DGGML_CUDA=ON"
+            echo "  cmake --build build --config Release"
+            echo ""
+            echo "  # Add to PATH"
+            echo "  sudo cp build/bin/llama-* /usr/local/bin/"
+            ;;
+        linux-cpu)
+            echo "Build llama.cpp from source:"
+            echo ""
+            echo "  # Install dependencies"
+            echo "  sudo apt update && sudo apt install -y build-essential cmake git"
+            echo ""
+            echo "  # Clone and build"
+            echo "  git clone https://github.com/ggerganov/llama.cpp"
+            echo "  cd llama.cpp"
+            echo "  cmake -B build"
+            echo "  cmake --build build --config Release"
+            echo ""
+            echo "  # Add to PATH"
+            echo "  sudo cp build/bin/llama-* /usr/local/bin/"
+            ;;
+    esac
+    echo ""
+    echo -e "${YELLOW}After installing llama.cpp, run this installer again.${RESET}"
+    echo ""
+fi
+
 # Create install directory
-echo -e "${CYAN}[1/3]${RESET} Creating install directory..."
+echo -e "${CYAN}[2/4]${RESET} Creating install directory..."
 mkdir -p "$INSTALL_DIR"
 
 # Create symlink to bin/llm-cli
-echo -e "${CYAN}[2/3]${RESET} Installing llm-cli..."
+echo -e "${CYAN}[3/4]${RESET} Installing llm-cli..."
 
 SYMLINK_PATH="$INSTALL_DIR/llm-cli"
 
@@ -46,7 +112,7 @@ fi
 ln -s "$SCRIPT_DIR/bin/llm-cli" "$SYMLINK_PATH"
 chmod +x "$SCRIPT_DIR/bin/llm-cli"
 
-echo -e "${CYAN}[3/3]${RESET} Checking PATH..."
+echo -e "${CYAN}[4/4]${RESET} Checking PATH..."
 
 # Check if install dir is in PATH
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
@@ -72,12 +138,41 @@ echo ""
 echo -e "${GREEN}[OK]${RESET} Installation complete!"
 echo ""
 echo "Installed to: $SYMLINK_PATH"
+echo "Platform:     $PLATFORM"
 echo ""
-echo "Get started:"
-echo "  llm-cli --help          Show help"
-echo "  llm-cli search llama    Search for models"
-echo "  llm-cli models list     List cached models"
-echo "  llm-cli chat            Start a conversation"
+
+# Platform-specific post-install instructions
+case "$PLATFORM" in
+    macos)
+        echo -e "${BOLD}Quick Start (macOS):${RESET}"
+        echo "  llm-cli --help          Show help"
+        echo "  llm-cli search llama    Search for models"
+        echo "  llm-cli models list     List cached models"
+        echo "  llm-cli chat            Start a conversation"
+        ;;
+    linux-nvidia)
+        echo -e "${BOLD}Quick Start (Linux + NVIDIA GPU):${RESET}"
+        echo "  llm-cli --help          Show help"
+        echo "  llm-cli config          Verify platform detection"
+        echo "  llm-cli search llama    Search for models"
+        echo "  llm-cli bench           Run GPU benchmark"
+        echo ""
+        echo -e "${BOLD}Optimal Performance:${RESET}"
+        echo "  Default threads: 10 (optimized for DGX Spark P-cores)"
+        echo "  GPU layers: 99 (full GPU offload)"
+        echo "  Adjust in: ~/.config/llm-cli/config"
+        ;;
+    linux-cpu)
+        echo -e "${BOLD}Quick Start (Linux CPU):${RESET}"
+        echo "  llm-cli --help          Show help"
+        echo "  llm-cli search llama    Search for models"
+        echo "  llm-cli models list     List cached models"
+        echo "  llm-cli chat            Start a conversation"
+        echo ""
+        echo -e "${YELLOW}Note: Running in CPU-only mode. For GPU acceleration,${RESET}"
+        echo -e "${YELLOW}install NVIDIA drivers and rebuild llama.cpp with CUDA.${RESET}"
+        ;;
+esac
 echo ""
 
 # Install bash completion if possible

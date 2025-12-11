@@ -23,12 +23,84 @@ readonly SESSIONS_LOG="${DATA_DIR}/sessions.log"
 # HuggingFace cache (standard location)
 readonly HF_CACHE_DIR="${HF_HOME:-$HOME/.cache/huggingface}/hub"
 
-# Default configuration for M1 Max
-# Can be overridden by config file or environment variables
+# Platform detection
+# Detects: macos, linux-nvidia, linux-cpu
+# Can be overridden by --platform flag or LLM_CLI_PLATFORM env var
+detect_platform() {
+    local os
+    os=$(uname -s)
+    if [[ "$os" == "Darwin" ]]; then
+        echo "macos"
+    elif [[ "$os" == "Linux" ]] && command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
+        echo "linux-nvidia"
+    else
+        echo "linux-cpu"
+    fi
+}
+
+# Set platform (called after parsing --platform flag)
+# Priority: --platform flag > LLM_CLI_PLATFORM env > auto-detect
+set_platform() {
+    local flag_platform="${1:-}"
+
+    if [[ -n "$flag_platform" ]]; then
+        # Validate flag value
+        case "$flag_platform" in
+            macos | linux-nvidia | linux-cpu)
+                PLATFORM="$flag_platform"
+                ;;
+            *)
+                echo "Warning: Invalid platform '$flag_platform'. Using auto-detection." >&2
+                PLATFORM=$(detect_platform)
+                ;;
+        esac
+    elif [[ -n "${LLM_CLI_PLATFORM:-}" ]]; then
+        # Validate env value
+        case "$LLM_CLI_PLATFORM" in
+            macos | linux-nvidia | linux-cpu)
+                PLATFORM="$LLM_CLI_PLATFORM"
+                ;;
+            *)
+                echo "Warning: Invalid LLM_CLI_PLATFORM '$LLM_CLI_PLATFORM'. Using auto-detection." >&2
+                PLATFORM=$(detect_platform)
+                ;;
+        esac
+    else
+        PLATFORM=$(detect_platform)
+    fi
+
+    export PLATFORM
+}
+
+# Get platform-specific defaults
+get_platform_defaults() {
+    case "$PLATFORM" in
+        macos)
+            DEFAULT_THREADS=8
+            DEFAULT_GPU_LAYERS=99
+            ;;
+        linux-nvidia)
+            # Optimized for DGX Spark: 10 P-cores across 2 clusters
+            DEFAULT_THREADS=10
+            DEFAULT_GPU_LAYERS=99
+            ;;
+        linux-cpu)
+            # Use all available CPU cores, no GPU
+            DEFAULT_THREADS=$(nproc 2>/dev/null || echo 4)
+            DEFAULT_GPU_LAYERS=0
+            ;;
+    esac
+}
+
+# Default configuration (platform-neutral defaults, updated by set_platform)
 DEFAULT_THREADS=8
 DEFAULT_GPU_LAYERS=99
 DEFAULT_CONTEXT_SIZE=4096
 DEFAULT_SYSTEM_PROMPT="You are a helpful AI assistant. Answer safely and concisely."
+
+# Initialize platform on first load (can be overridden later by set_platform)
+PLATFORM=$(detect_platform)
+get_platform_defaults
 
 # Quantization priority (for auto-selection)
 readonly QUANT_PRIORITY=("Q5_K_M" "Q4_K_M" "Q6_K" "Q4_K_S" "Q8_0")
@@ -43,14 +115,31 @@ init_config() {
     init_directories
 
     if [ ! -f "$CONFIG_FILE" ]; then
-        cat >"$CONFIG_FILE" <<'EOF'
+        local platform_comment
+        case "$PLATFORM" in
+            macos)
+                platform_comment="# Performance settings (optimized for Apple Silicon)"
+                ;;
+            linux-nvidia)
+                platform_comment="# Performance settings (optimized for NVIDIA GPU / DGX Spark)"
+                ;;
+            linux-cpu)
+                platform_comment="# Performance settings (CPU-only mode)"
+                ;;
+            *)
+                platform_comment="# Performance settings"
+                ;;
+        esac
+
+        cat >"$CONFIG_FILE" <<EOF
 # LLM CLI Configuration
 # Edit this file to customize your settings
+# Detected platform: $PLATFORM
 
-# Performance settings (optimized for M1 Max)
-THREADS=8
-GPU_LAYERS=99
-CONTEXT_SIZE=4096
+$platform_comment
+THREADS=$DEFAULT_THREADS
+GPU_LAYERS=$DEFAULT_GPU_LAYERS
+CONTEXT_SIZE=$DEFAULT_CONTEXT_SIZE
 
 # System prompt for chat sessions
 SYSTEM_PROMPT="You are a helpful AI assistant. Answer safely and concisely."
@@ -101,6 +190,8 @@ load_config() {
 show_config() {
     echo "LLM CLI Configuration"
     echo "====================="
+    echo ""
+    echo "Platform:   $PLATFORM"
     echo ""
     echo "Directories:"
     echo "  Config:     $CONFIG_DIR"

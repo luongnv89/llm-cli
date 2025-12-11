@@ -66,12 +66,32 @@ require_command() {
     fi
 }
 
+# Get platform-specific llama.cpp install hint
+get_llama_install_hint() {
+    case "$PLATFORM" in
+        macos)
+            echo "brew install llama.cpp"
+            ;;
+        linux-nvidia)
+            echo "Build from source with CUDA: https://github.com/ggerganov/llama.cpp#cuda"
+            ;;
+        linux-cpu)
+            echo "Build from source: https://github.com/ggerganov/llama.cpp#build"
+            ;;
+        *)
+            echo "See https://github.com/ggerganov/llama.cpp"
+            ;;
+    esac
+}
+
 # Check required dependencies
 check_dependencies() {
     local missing=()
+    local install_hint
 
     if ! command -v llama-cli &>/dev/null; then
-        missing+=("llama-cli (brew install llama.cpp)")
+        install_hint=$(get_llama_install_hint)
+        missing+=("llama-cli ($install_hint)")
     fi
 
     if [ ${#missing[@]} -gt 0 ]; then
@@ -80,6 +100,27 @@ check_dependencies() {
             echo "  - $dep" >&2
         done
         exit 1
+    fi
+
+    # Warn if NVIDIA GPU detected but CUDA may not be available in llama.cpp
+    check_cuda_support
+}
+
+# Check CUDA support for NVIDIA platforms
+check_cuda_support() {
+    if [[ "$PLATFORM" == "linux-nvidia" ]]; then
+        # Check if llama-cli was built with CUDA support
+        # This is a heuristic check - llama-cli with CUDA typically shows CUDA in --help or uses GPU
+        if command -v llama-cli &>/dev/null; then
+            local llama_info
+            llama_info=$(llama-cli --version 2>&1 || true)
+            # Check for common CUDA-related strings in output
+            if ! echo "$llama_info" | grep -qi -E "cuda|cublas|gpu" 2>/dev/null; then
+                log_warn "NVIDIA GPU detected but llama.cpp may not have CUDA support."
+                log_warn "For optimal performance, rebuild llama.cpp with CUDA:"
+                log_warn "  cmake -B build -DGGML_CUDA=ON && cmake --build build"
+            fi
+        fi
     fi
 }
 

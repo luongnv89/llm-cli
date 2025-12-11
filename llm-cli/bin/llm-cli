@@ -59,6 +59,7 @@ ${BOLD}BENCHMARKING:${RESET}
 ${BOLD}OPTIONS:${RESET}
     -h, --help                  Show this help message
     -v, --version               Show version
+    --platform <name>           Override platform detection (macos, linux-nvidia, linux-cpu)
     --no-color                  Disable colored output
 
 ${BOLD}EXAMPLES:${RESET}
@@ -78,7 +79,13 @@ ${BOLD}ENVIRONMENT VARIABLES:${RESET}
     LLM_CLI_THREADS       Override thread count
     LLM_CLI_GPU_LAYERS    Override GPU layers
     LLM_CLI_CONTEXT_SIZE  Override context size
+    LLM_CLI_PLATFORM      Override platform detection
     NO_COLOR              Disable colored output
+
+${BOLD}SUPPORTED PLATFORMS:${RESET}
+    macos                 macOS with Apple Silicon (Metal GPU)
+    linux-nvidia          Linux with NVIDIA GPU (CUDA)
+    linux-cpu             Linux CPU-only mode
 
 EOF
 }
@@ -150,7 +157,32 @@ cmd_config() {
 
 # Main dispatcher
 main() {
-    # Initialize configuration
+    local platform_override=""
+
+    # Pre-parse --platform flag before loading config
+    # This allows platform to affect default configuration
+    for arg in "$@"; do
+        if [[ "$arg" == "--platform" ]]; then
+            # Next arg should be the platform value
+            local next=false
+            for a in "$@"; do
+                if [[ "$next" == "true" ]]; then
+                    platform_override="$a"
+                    break
+                fi
+                [[ "$a" == "--platform" ]] && next=true
+            done
+            break
+        elif [[ "$arg" == --platform=* ]]; then
+            platform_override="${arg#--platform=}"
+            break
+        fi
+    done
+
+    # Set platform (affects defaults)
+    set_platform "$platform_override"
+
+    # Initialize configuration with platform-specific defaults
     init_config
     load_config
     setup_colors
@@ -165,6 +197,15 @@ main() {
             -v | --version)
                 show_version
                 exit 0
+                ;;
+            --platform)
+                # Already handled above, just skip
+                shift
+                shift
+                ;;
+            --platform=*)
+                # Already handled above, just skip
+                shift
                 ;;
             --no-color)
                 NO_COLOR=1

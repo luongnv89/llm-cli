@@ -36,17 +36,70 @@ generate_report_filename() {
     echo "benchmark_${short_name}_${timestamp}.md"
 }
 
+# Helper to safely query nvidia-smi
+nvidia_smi_query() {
+    local query="$1"
+    local result
+    result=$(nvidia-smi --query-gpu="$query" --format=csv,noheader 2>/dev/null | head -1)
+    if [[ -z "$result" || "$result" == "[N/A]" ]]; then
+        echo "Unknown"
+    else
+        echo "$result"
+    fi
+}
+
 # Get system info for report
 get_system_info() {
     echo "## System Information"
     echo ""
     echo "- **Date**: $(date '+%Y-%m-%d %H:%M:%S')"
     echo "- **Host**: $(hostname)"
+    echo "- **Platform**: $PLATFORM"
     echo "- **OS**: $(uname -s) $(uname -r)"
-    if [ "$(uname -s)" = "Darwin" ]; then
-        echo "- **Chip**: $(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo 'Unknown')"
-        echo "- **Memory**: $(($(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1024 / 1024 / 1024)) GB"
-    fi
+
+    case "$PLATFORM" in
+        macos)
+            # Apple Silicon info
+            echo "- **Chip**: $(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo 'Unknown')"
+            echo "- **Memory**: $(($(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1024 / 1024 / 1024)) GB"
+            ;;
+        linux-nvidia)
+            # Linux CPU info
+            local cpu_model
+            cpu_model=$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2 | sed 's/^ //' || echo 'Unknown')
+            local cpu_cores
+            cpu_cores=$(nproc 2>/dev/null || echo 'Unknown')
+            local mem_total
+            mem_total=$(awk '/MemTotal/ {printf "%.0f", $2/1024/1024}' /proc/meminfo 2>/dev/null || echo 'Unknown')
+
+            echo "- **CPU**: $cpu_model"
+            echo "- **CPU Cores**: $cpu_cores"
+            echo "- **Memory**: ${mem_total} GB"
+
+            # NVIDIA GPU info
+            if command -v nvidia-smi &>/dev/null; then
+                echo "- **GPU**: $(nvidia_smi_query 'name')"
+                echo "- **GPU Memory**: $(nvidia_smi_query 'memory.total')"
+                echo "- **CUDA Driver**: $(nvidia_smi_query 'driver_version')"
+                echo "- **GPU Temperature**: $(nvidia_smi_query 'temperature.gpu')°C"
+                echo "- **GPU Power**: $(nvidia_smi_query 'power.draw')"
+            fi
+            ;;
+        linux-cpu)
+            # Linux CPU-only info
+            local cpu_model
+            cpu_model=$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2 | sed 's/^ //' || echo 'Unknown')
+            local cpu_cores
+            cpu_cores=$(nproc 2>/dev/null || echo 'Unknown')
+            local mem_total
+            mem_total=$(awk '/MemTotal/ {printf "%.0f", $2/1024/1024}' /proc/meminfo 2>/dev/null || echo 'Unknown')
+
+            echo "- **CPU**: $cpu_model"
+            echo "- **CPU Cores**: $cpu_cores"
+            echo "- **Memory**: ${mem_total} GB"
+            ;;
+    esac
+
     # Get llama.cpp version
     local llama_version
     llama_version=$(llama-cli --version 2>&1 | grep -oE 'version: [0-9]+ \([a-f0-9]+\)' | head -1 || echo 'Unknown')
