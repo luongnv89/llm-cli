@@ -2,6 +2,90 @@
 # llm-cli: Download and search functions
 # Search HuggingFace, download models
 
+# Detect available download methods and their status
+# Returns: method_name available_flag reason
+get_download_method_status() {
+    local method="$1"
+
+    case "$method" in
+        hf-cli)
+            # Check for 'hf' command (new HuggingFace CLI)
+            if command -v hf &>/dev/null; then
+                echo "hf-cli true Available"
+            else
+                echo "hf-cli false Not installed"
+            fi
+            ;;
+        huggingface-cli)
+            # Check for 'huggingface-cli' command (old HuggingFace CLI)
+            if command -v huggingface-cli &>/dev/null; then
+                echo "huggingface-cli true Available"
+            else
+                echo "huggingface-cli false Not installed"
+            fi
+            ;;
+        curl)
+            # curl is almost always available
+            if command -v curl &>/dev/null; then
+                echo "curl true Available (native)"
+            else
+                echo "curl false Not installed"
+            fi
+            ;;
+    esac
+}
+
+# Show download method selection and reasoning
+show_download_method_info() {
+    echo ""
+    echo -e "${BOLD}📥 Download Method:${RESET}"
+    echo ""
+
+    # Check available methods in priority order
+    local selected_method=""
+    local methods=("hf-cli" "huggingface-cli" "curl")
+
+    # Show status of all methods
+    echo -e "${DIM}Available methods (in priority order):${RESET}"
+    for method in "${methods[@]}"; do
+        local status
+        status=$(get_download_method_status "$method")
+        local method_name available reason
+        read -r method_name available reason <<<"$status"
+
+        if [ "$available" = "true" ]; then
+            if [ -z "$selected_method" ]; then
+                selected_method="$method_name"
+                echo -e "  ✅ ${GREEN}${method_name}${RESET} - $reason (${GREEN}SELECTED${RESET})"
+            else
+                echo -e "  ⊘ ${DIM}${method_name}${RESET} - $reason (skipped, using $selected_method)"
+            fi
+        else
+            echo -e "  ✗ ${DIM}${method_name}${RESET} - $reason"
+        fi
+    done
+
+    echo ""
+    echo -e "${DIM}Using: ${BOLD}${selected_method}${RESET}"
+
+    # Show method explanation
+    case "$selected_method" in
+        hf-cli)
+            echo -e "${DIM}HuggingFace CLI tool (hf) - Modern, efficient, recommended${RESET}"
+            echo -e "${DIM}Handles authentication, resumable downloads, and caching${RESET}"
+            ;;
+        huggingface-cli)
+            echo -e "${DIM}HuggingFace CLI tool (huggingface-cli) - Legacy tool${RESET}"
+            echo -e "${DIM}Handles authentication, resumable downloads, and caching${RESET}"
+            ;;
+        curl)
+            echo -e "${DIM}curl - Universal fallback method${RESET}"
+            echo -e "${DIM}Direct HTTPS download, works everywhere, no dependencies${RESET}"
+            ;;
+    esac
+    echo ""
+}
+
 # Show platform-specific quantization recommendations
 show_quant_recommendations() {
     case "$PLATFORM" in
@@ -193,6 +277,9 @@ cmd_search() {
     echo ""
     log_info "Selected: $selected_repo"
 
+    # Show download method info before downloading
+    show_download_method_info
+
     # Download the selected model
     do_download "$selected_repo"
 }
@@ -211,6 +298,9 @@ cmd_download() {
         echo "Find models with: llm-cli search <query>"
         exit 1
     fi
+
+    # Show download method info at the start
+    show_download_method_info
 
     do_download "$repo"
 }
