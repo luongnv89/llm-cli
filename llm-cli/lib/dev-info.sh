@@ -44,6 +44,58 @@ get_port_from_endpoint() {
     fi
 }
 
+# Get local IP address (for remote connections)
+get_local_ip() {
+    local ip=""
+
+    # Try to get local IP using various methods
+    if command -v hostname &>/dev/null; then
+        # Try hostname -I (Linux) or hostname (macOS fallback)
+        if [[ "$PLATFORM" == "linux-"* ]]; then
+            ip=$(hostname -I | awk '{print $1}' 2>/dev/null || echo "")
+        else
+            # macOS: use ifconfig to get the first non-loopback IPv4
+            ip=$(ifconfig 2>/dev/null | grep -E "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1 || echo "")
+        fi
+    fi
+
+    # Fallback: if empty, try to determine via socket connection
+    if [[ -z "$ip" ]]; then
+        # Connect to a public DNS server and see what IP we use locally
+        ip=$(bash -c "exec 3<>/dev/udp/8.8.8.8/53; echo -e '\\x00\\x00' >&3" 2>/dev/null || echo "")
+        if [[ -z "$ip" ]]; then
+            # Last resort: localhost
+            ip="127.0.0.1"
+        fi
+    fi
+
+    echo "$ip"
+}
+
+# Get list of available models from endpoint
+get_available_models() {
+    local endpoint="$1"
+    local timeout="${2:-2}"
+
+    if ! command -v curl &>/dev/null; then
+        echo "# curl not available"
+        return 1
+    fi
+
+    # Try to fetch models from /v1/models endpoint
+    local models_json
+    models_json=$(curl -s -m "$timeout" "${endpoint}/v1/models" 2>/dev/null)
+
+    if [[ -z "$models_json" ]]; then
+        return 1
+    fi
+
+    # Parse model IDs from JSON response
+    # Response format: {"object":"list","data":[{"id":"model-name",...}]}
+    # Extract just the IDs using grep and basic text processing (no jq for Bash 3.2 compat)
+    echo "$models_json" | grep -oE '"id":"[^"]+' | cut -d'"' -f4 2>/dev/null || return 1
+}
+
 # Check endpoint connectivity status
 check_endpoint_status() {
     local endpoint="$1"
@@ -79,12 +131,35 @@ check_endpoint_status() {
 # Render OpenAI-compatible configuration
 render_openai_config() {
     local endpoint="$1"
+    local local_ip
+    local_ip=$(get_local_ip)
+
     cat <<EOF
 ${BOLD}OpenAI-Compatible Configuration${RESET}
 =====================================
-Base URL:  ${CYAN}${endpoint}/v1${RESET}
-Model:     gguf-model (use your actual model name)
-API Key:   sk-local (or leave empty)
+
+${BOLD}Connection URLs:${RESET}
+  Localhost:  ${CYAN}${endpoint}/v1${RESET}
+  Remote:     ${CYAN}http://${local_ip}:$(get_port_from_endpoint "$endpoint")/v1${RESET}
+
+${BOLD}Authentication:${RESET}
+  API Key:    sk-local (or leave empty)
+
+${BOLD}Available Models:${RESET}
+EOF
+
+    # Try to fetch and display available models
+    local models
+    models=$(get_available_models "$endpoint")
+    if [[ -n "$models" ]]; then
+        echo "$models" | while read -r model; do
+            echo "  • ${CYAN}${model}${RESET}"
+        done
+    else
+        echo "  ${DIM}(none available - endpoint not running or no models loaded)${RESET}"
+    fi
+
+    cat <<EOF
 
 ${DIM}Example usage:${RESET}
   Python:
@@ -94,7 +169,7 @@ ${DIM}Example usage:${RESET}
         api_key="sk-local"
     )
     response = client.chat.completions.create(
-        model="model-name",
+        model="your-model-name",
         messages=[{"role": "user", "content": "Hello!"}]
     )
 EOF
