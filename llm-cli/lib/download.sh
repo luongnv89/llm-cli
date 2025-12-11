@@ -405,7 +405,7 @@ do_download() {
 
             # Extract quant type for display
             local quant_type
-            quant_type=$(echo "$group" | grep -oE 'Q[0-9]+_K_[A-Z]+|Q[0-9]+_[0-9]+|Q[0-9]+_K|IQ[0-9]+_[A-Z]+|UD-Q[0-9]+_K_[A-Z]+|F16' | head -1 || echo "unknown")
+            quant_type=$(echo "$group" | grep -oE 'MXFP4|Q[0-9]+_K_[A-Z]+|Q[0-9]+_[0-9]+|Q[0-9]+_K|IQ[0-9]+_[A-Z]+|UD-Q[0-9]+_K_[A-Z]+|F16' | head -1 || echo "unknown")
 
             QUANT_OPTIONS[$i]="$group"
             QUANT_FILES[$i]="$group_files"
@@ -445,7 +445,7 @@ do_download() {
     if [ -n "$recommended_idx" ]; then
         local rec_opt="${QUANT_OPTIONS[$recommended_idx]}"
         local quant_type
-        quant_type=$(echo "$rec_opt" | grep -oE 'Q[0-9]+_K_[A-Z]+|Q[0-9]+_[0-9]+|Q[0-9]+_K' | head -1 || echo "recommended")
+        quant_type=$(echo "$rec_opt" | grep -oE 'MXFP4|Q[0-9]+_K_[A-Z]+|Q[0-9]+_[0-9]+|Q[0-9]+_K' | head -1 || echo "recommended")
         log_info "Recommended: $quant_type"
         echo ""
 
