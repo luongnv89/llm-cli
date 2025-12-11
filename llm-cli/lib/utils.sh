@@ -124,6 +124,72 @@ check_cuda_support() {
     fi
 }
 
+# Get GPU memory in MB
+get_gpu_memory_mb() {
+    if [[ "$PLATFORM" != "linux-nvidia" ]] || ! command -v nvidia-smi &>/dev/null; then
+        echo "0"
+        return 1
+    fi
+    nvidia-smi --query-gpu=memory.total --format=csv,noheader 2>/dev/null | head -1 | sed 's/ MiB//'
+}
+
+# Show GPU memory and model recommendations for DGX Spark
+show_gpu_memory_info() {
+    if [[ "$PLATFORM" != "linux-nvidia" ]]; then
+        return
+    fi
+
+    if ! command -v nvidia-smi &>/dev/null; then
+        return
+    fi
+
+    local gpu_mem
+    gpu_mem=$(get_gpu_memory_mb)
+
+    if [[ -z "$gpu_mem" || "$gpu_mem" == "0" ]]; then
+        return
+    fi
+
+    # Convert to GB for display
+    local gpu_mem_gb=$((gpu_mem / 1024))
+
+    echo ""
+    echo -e "${BOLD}💾 GPU Memory Info:${RESET}"
+    echo -e "${DIM}Total GPU Memory: ${gpu_mem_gb} GB${RESET}"
+    echo ""
+    echo -e "${DIM}Recommended model sizes:${RESET}"
+
+    if [[ $gpu_mem_gb -ge 80 ]]; then
+        # 80GB+ H200/H100
+        echo -e "  • ${GREEN}70B models${RESET} (Q4_K_M, MXFP4) - ${DIM}Excellent fit${RESET}"
+        echo -e "  • ${GREEN}20-30B models${RESET} (any quantization) - ${DIM}Optimal${RESET}"
+        echo -e "  • ${GREEN}7-13B models${RESET} (Q8_0, full precision) - ${DIM}Full offload${RESET}"
+    elif [[ $gpu_mem_gb -ge 40 ]]; then
+        # 40GB L40S
+        echo -e "  • ${GREEN}30B models${RESET} (Q4_K_M, MXFP4) - ${DIM}Good fit${RESET}"
+        echo -e "  • ${GREEN}13B models${RESET} (Q8_0) - ${DIM}Recommended${RESET}"
+        echo -e "  • ${YELLOW}7B models${RESET} (Q8_0, full) - ${DIM}Safer choice${RESET}"
+    elif [[ $gpu_mem_gb -ge 24 ]]; then
+        # 24GB (typical)
+        echo -e "  • ${YELLOW}13B models${RESET} (Q4_K_M, MXFP4) - ${DIM}Recommended${RESET}"
+        echo -e "  • ${GREEN}7B models${RESET} (Q8_0, full) - ${DIM}Best choice${RESET}"
+        echo -e "  • ${YELLOW}3B models${RESET} (any quantization) - ${DIM}Safe option${RESET}"
+    elif [[ $gpu_mem_gb -ge 12 ]]; then
+        # 12GB (e.g., RTX 4080)
+        echo -e "  • ${YELLOW}7B models${RESET} (Q4_K_M, MXFP4) - ${DIM}Try first${RESET}"
+        echo -e "  • ${GREEN}3B models${RESET} (Q8_0, full) - ${DIM}Recommended${RESET}"
+    else
+        # <12GB
+        echo -e "  • ${GREEN}3B models${RESET} (Q4_K_M) - ${DIM}Recommended${RESET}"
+        echo -e "  • ${YELLOW}7B models${RESET} (Q2_K, Q3_K) - ${DIM}May work, reduce GPU_LAYERS${RESET}"
+    fi
+
+    echo ""
+    echo -e "${DIM}Tip: Use MXFP4 quantization for better performance on Blackwell${RESET}"
+    echo -e "${DIM}Adjust GPU_LAYERS with: LLM_CLI_GPU_LAYERS=50 llm-cli chat${RESET}"
+    echo ""
+}
+
 # Check optional dependencies
 check_optional_deps() {
     if ! command -v huggingface-cli &>/dev/null; then

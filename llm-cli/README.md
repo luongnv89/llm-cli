@@ -269,6 +269,62 @@ For other platforms (macOS, Linux CPU), the default quantization priority is:
 4. Q4_K_S - Small quantization
 5. Q8_0 - Full 8-bit quantization
 
+## Model Selection Guide
+
+### Recommended Model Sizes by GPU Memory
+
+**llm-cli automatically shows GPU memory and model recommendations** when you run:
+```bash
+llm-cli models list    # Shows available models with GPU memory info
+llm-cli chat 1         # Shows memory recommendations before starting chat
+```
+
+The tool detects your GPU VRAM and suggests appropriate model sizes:
+
+#### 80GB+ VRAM (H100, H200, DGX Spark with full memory)
+- ✅ **70B models** (Q4_K_M, MXFP4) - Excellent fit
+- ✅ **20-30B models** (any quantization) - Optimal
+- ✅ **7-13B models** (Q8_0, full precision) - Full GPU offload
+
+#### 40GB VRAM (L40S)
+- ✅ **30B models** (Q4_K_M, MXFP4) - Good fit
+- ✅ **13B models** (Q8_0) - Recommended
+- ⚠️ **7B models** (Q8_0) - Safer choice
+
+#### 24GB VRAM (Typical DGX Spark config, RTX 6000)
+- ✅ **13B models** (Q4_K_M, MXFP4) - Recommended
+- ✅ **7B models** (Q8_0, full) - Best choice
+- ⚠️ **3B models** (any) - Safe option
+
+#### 12GB VRAM (RTX 4080, RTX 4090)
+- ⚠️ **7B models** (Q4_K_M, MXFP4) - Try first
+- ✅ **3B models** (Q8_0) - Recommended
+
+#### <12GB VRAM
+- ✅ **3B models** (Q4_K_M) - Recommended
+- ⚠️ **7B models** (Q2_K, Q3_K) - May work, reduce GPU_LAYERS
+
+### Troubleshooting Out of Memory (OOM)
+
+If you get "CUDA error: out of memory":
+
+**Option 1: Use smaller quantization**
+```bash
+llm-cli search llama-3.2      # Look for Q4_K_M or MXFP4 variants
+llm-cli search llama-3.2-7b   # Search for smaller model size
+```
+
+**Option 2: Reduce GPU offloading**
+```bash
+LLM_CLI_GPU_LAYERS=50 llm-cli chat 1    # Offload fewer layers to GPU
+LLM_CLI_GPU_LAYERS=30 llm-cli chat bartowski/Llama-3.2-3B-GGUF
+```
+
+**Option 3: Use CPU-only fallback**
+```bash
+LLM_CLI_PLATFORM=linux-cpu llm-cli chat 1   # Force CPU-only mode
+```
+
 ## Data Storage
 
 Following XDG Base Directory specification:

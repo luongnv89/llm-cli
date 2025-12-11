@@ -100,6 +100,10 @@ start_chat() {
     echo -e "${BOLD}Model:${RESET}   $model_name"
     echo -e "${BOLD}Path:${RESET}    $model_path"
     echo ""
+
+    # Show GPU memory info on NVIDIA systems (with recommendations)
+    show_gpu_memory_info
+
     echo -e "${BOLD}Configuration:${RESET}"
     echo "  Threads:      $THREADS"
     echo "  GPU Layers:   $GPU_LAYERS"

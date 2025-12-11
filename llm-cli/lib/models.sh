@@ -113,6 +113,9 @@ cmd_models_list() {
     echo "  llm-cli chat <N>          Start conversation"
     echo "  llm-cli models info <N>   View details"
     echo "  llm-cli bench <N>         Run benchmark"
+
+    # Show GPU memory info on NVIDIA systems
+    show_gpu_memory_info
 }
 
 # Show detailed model info
