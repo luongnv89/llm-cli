@@ -387,8 +387,8 @@ bench_all() {
         # Extract metrics from benchmark output table
         # Format: | pp512 | 2695.11 ± 35.37 |
         #         | tg128 | 82.79 ± 0.27 |
-        pp=$(echo "$data" | grep -E '^\|\s*pp[0-9]+\s*\|' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
-        tg=$(echo "$data" | grep -E '^\|\s*tg[0-9]+\s*\|' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
+        pp=$(echo "$data" | grep 'pp512' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
+        tg=$(echo "$data" | grep 'tg128' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
 
         printf "%-50s %12s %12s\n" "$display_name" "$pp" "$tg"
 
@@ -517,8 +517,8 @@ bench_batch() {
         # Format: | pp512 | 2695.11 ± 35.37 |
         #         | tg128 | 82.79 ± 0.27 |
         local pp tg
-        pp=$(echo "$result" | grep -E '^\|\s*pp[0-9]+\s*\|' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
-        tg=$(echo "$result" | grep -E '^\|\s*tg[0-9]+\s*\|' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
+        pp=$(echo "$result" | grep 'pp512' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
+        tg=$(echo "$result" | grep 'tg128' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
 
         results+=("${MODEL_NAMES[$idx]}|${MODEL_SIZES[$idx]}|$pp|$tg")
 
@@ -661,10 +661,10 @@ save_benchmark_report() {
     # e.g., | pp512 | 2695.11 ± 35.37 |
     #       | tg128 | 82.79 ± 0.27 |
     local pp_speed tg_speed
-    # Look for pp (prompt processing) metrics - matches "pp512" or similar in first column of metrics table
-    pp_speed=$(echo "$bench_output" | grep -E '^\|\s*pp[0-9]+\s*\|' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
-    # Look for tg (text generation) metrics - matches "tg128" or similar in first column of metrics table
-    tg_speed=$(echo "$bench_output" | grep -E '^\|\s*tg[0-9]+\s*\|' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
+    # Look for pp (prompt processing) metrics - matches "pp512" in test column of metrics table
+    pp_speed=$(echo "$bench_output" | grep 'pp512' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
+    # Look for tg (text generation) metrics - matches "tg128" in test column of metrics table
+    tg_speed=$(echo "$bench_output" | grep 'tg128' | grep -oE '[0-9]+\.[0-9]+\s*±' | head -1 | grep -oE '[0-9]+\.[0-9]+' || echo "N/A")
 
     # Generate report
     {
