@@ -27,6 +27,7 @@ source "$LIB_DIR/download.sh"
 source "$LIB_DIR/chat.sh"
 source "$LIB_DIR/benchmark.sh"
 source "$LIB_DIR/stats.sh"
+source "$LIB_DIR/dev-info.sh"
 
 # Show main help
 show_help() {
@@ -44,6 +45,7 @@ ${BOLD}COMMANDS:${RESET}
     ${CYAN}bench${RESET}, benchmark        Benchmark models
     ${CYAN}stats${RESET}                   Show usage statistics
     ${CYAN}config${RESET}                  Show/edit configuration
+    ${CYAN}info${RESET}                    Show developer integration information
 
 ${BOLD}MODEL MANAGEMENT:${RESET}
     llm-cli models list         List all cached models
@@ -70,6 +72,8 @@ ${BOLD}EXAMPLES:${RESET}
     llm-cli models list
     llm-cli bench --all
     llm-cli stats
+    llm-cli info
+    llm-cli info --json
 
 ${BOLD}CONFIGURATION:${RESET}
     Config file: ~/.config/llm-cli/config
@@ -151,6 +155,130 @@ cmd_config() {
             ;;
         *)
             show_config
+            ;;
+    esac
+}
+
+# Handle info command
+cmd_info() {
+    local endpoint_override=""
+    local port_override=""
+    local output_format="text" # text, json, endpoint-only, port-only, status-only
+    local template_format=""   # openai, anthropic, env, examples
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -h | --help)
+                render_info_help
+                return 0
+                ;;
+            --endpoint)
+                endpoint_override="$2"
+                shift 2
+                ;;
+            --endpoint=*)
+                endpoint_override="${1#--endpoint=}"
+                shift
+                ;;
+            --port)
+                port_override="$2"
+                shift 2
+                ;;
+            --port=*)
+                port_override="${1#--port=}"
+                shift
+                ;;
+            --json)
+                output_format="json"
+                shift
+                ;;
+            --endpoint-only)
+                output_format="endpoint-only"
+                shift
+                ;;
+            --port-only)
+                output_format="port-only"
+                shift
+                ;;
+            --status-only)
+                output_format="status-only"
+                shift
+                ;;
+            --format)
+                template_format="$2"
+                output_format="template"
+                shift 2
+                ;;
+            --format=*)
+                template_format="${1#--format=}"
+                output_format="template"
+                shift
+                ;;
+            -*)
+                log_error "Unknown option: $1"
+                return 1
+                ;;
+            *)
+                log_error "Unknown argument: $1"
+                return 1
+                ;;
+        esac
+    done
+
+    # Get endpoint URL
+    local endpoint
+    endpoint=$(get_endpoint_url "$endpoint_override")
+
+    # Extract port
+    local port
+    if [[ -n "$port_override" ]]; then
+        port="$port_override"
+    else
+        port=$(get_port_from_endpoint "$endpoint")
+    fi
+
+    # Check endpoint status
+    local status
+    status=$(check_endpoint_status "$endpoint" 2) || status="not-running"
+
+    # Render output based on format
+    case "$output_format" in
+        text)
+            render_info_text "$endpoint" "$port" "$status"
+            ;;
+        json)
+            render_info_json "$endpoint" "$port" "$status"
+            ;;
+        endpoint-only)
+            echo "$endpoint"
+            ;;
+        port-only)
+            echo "$port"
+            ;;
+        status-only)
+            echo "$status"
+            ;;
+        template)
+            case "$template_format" in
+                openai)
+                    render_openai_config "$endpoint"
+                    ;;
+                anthropic)
+                    render_anthropic_config "$endpoint"
+                    ;;
+                env)
+                    render_env_vars "$endpoint" "$port"
+                    ;;
+                examples)
+                    render_code_examples "$endpoint"
+                    ;;
+                *)
+                    log_error "Unknown format: $template_format"
+                    echo "Available formats: openai, anthropic, env, examples"
+                    return 1
+                    ;;
+            esac
             ;;
     esac
 }
@@ -252,6 +380,9 @@ main() {
             ;;
         config)
             cmd_config "$@"
+            ;;
+        info)
+            cmd_info "$@"
             ;;
         help)
             show_help
