@@ -102,8 +102,31 @@ DEFAULT_SYSTEM_PROMPT="You are a helpful AI assistant. Answer safely and concise
 PLATFORM=$(detect_platform)
 get_platform_defaults
 
-# Quantization priority (for auto-selection)
-readonly QUANT_PRIORITY=("Q5_K_M" "Q4_K_M" "Q6_K" "Q4_K_S" "Q8_0")
+# Get quantization priority based on platform
+# MXFP4 is optimized for NVIDIA Blackwell (DGX Spark) architecture
+get_quant_priority() {
+    case "${1:-$PLATFORM}" in
+        linux-nvidia)
+            # MXFP4 is specifically optimized for Blackwell architecture
+            echo "MXFP4" "Q5_K_M" "Q4_K_M" "Q6_K" "Q4_K_S" "Q8_0"
+            ;;
+        *)
+            # Standard priority for other platforms
+            echo "Q5_K_M" "Q4_K_M" "Q6_K" "Q4_K_S" "Q8_0"
+            ;;
+    esac
+}
+
+# Set quantization priority at runtime
+set_quant_priority() {
+    local quant_list
+    quant_list=$(get_quant_priority "$@")
+    # Convert space-separated string to array (Bash 3.2 compatible)
+    QUANT_PRIORITY=()
+    for q in $quant_list; do
+        QUANT_PRIORITY+=("$q")
+    done
+}
 
 # Initialize directories
 init_directories() {

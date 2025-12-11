@@ -315,6 +315,9 @@ main() {
     load_config
     setup_colors
 
+    # Set quantization priority based on platform (MXFP4 for NVIDIA)
+    set_quant_priority
+
     # Parse global options
     while [[ $# -gt 0 ]]; do
         case "$1" in

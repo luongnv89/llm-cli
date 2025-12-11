@@ -2,6 +2,19 @@
 # llm-cli: Download and search functions
 # Search HuggingFace, download models
 
+# Show platform-specific quantization recommendations
+show_quant_recommendations() {
+    case "$PLATFORM" in
+        linux-nvidia)
+            echo ""
+            echo -e "${BOLD}💡 Platform Optimization Tip:${RESET}"
+            echo -e "${DIM}MXFP4 is specifically optimized for Blackwell architecture (DGX Spark)${RESET}"
+            echo -e "${DIM}Prefer MXFP4 models over standard Q4_K_M for best performance${RESET}"
+            echo ""
+            ;;
+    esac
+}
+
 # Search HuggingFace for GGUF models
 # Returns JSON array of matching models
 search_huggingface() {
@@ -126,7 +139,9 @@ cmd_search() {
     fi
 
     print_header "Search Results: $query"
-    echo ""
+
+    # Show platform-specific recommendations
+    show_quant_recommendations
 
     # Parse JSON and display results
     local i=1

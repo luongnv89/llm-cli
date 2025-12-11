@@ -236,6 +236,39 @@ LLM_CLI_PLATFORM=linux-nvidia llm-cli bench
 
 Valid platform values: `macos`, `linux-nvidia`, `linux-cpu`
 
+## Quantization Optimization
+
+### MXFP4 for NVIDIA Blackwell (DGX Spark)
+
+When searching for models on **DGX Spark** systems, llm-cli automatically prioritizes **MXFP4** quantization:
+
+```
+llm-cli search llama-3.2
+# Shows: "💡 Platform Optimization Tip:
+#         MXFP4 is specifically optimized for Blackwell architecture (DGX Spark)
+#         Prefer MXFP4 models over standard Q4_K_M for best performance"
+```
+
+**Why MXFP4?**
+- Specifically optimized for NVIDIA Blackwell architecture used in DGX Spark
+- Delivers superior performance compared to standard quantizations
+- Maintains accuracy while reducing memory requirements
+- Ideal for running larger models on GPU
+
+**How it works:**
+1. When searching for models, look for MXFP4 variants first
+2. During auto-download, MXFP4 is automatically selected if available
+3. Fall back to Q5_K_M, Q4_K_M if MXFP4 not available
+
+### Standard Quantization Priority
+
+For other platforms (macOS, Linux CPU), the default quantization priority is:
+1. Q5_K_M - Balanced quality and size
+2. Q4_K_M - More aggressive quantization
+3. Q6_K - Higher quality for larger contexts
+4. Q4_K_S - Small quantization
+5. Q8_0 - Full 8-bit quantization
+
 ## Data Storage
 
 Following XDG Base Directory specification:
