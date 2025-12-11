@@ -78,16 +78,13 @@ The installer creates a symlink in `~/.local/bin/`. Make sure this is in your PA
 ## Quick Start
 
 ```bash
-# Search for a model
+# Quick way - auto-download & chat (no pre-download needed)
+llm-cli chat bartowski/Llama-3.2-3B-Instruct-GGUF
+
+# Or the traditional way - download first, then chat
 llm-cli search llama-3.2
-
-# Download a model
 llm-cli download bartowski/Llama-3.2-3B-Instruct-GGUF
-
-# List cached models
 llm-cli models list
-
-# Start a conversation
 llm-cli chat
 
 # Run a benchmark
@@ -111,10 +108,19 @@ llm-cli d bartowski/Llama-3.2-3B-Instruct-GGUF
 ### Chat
 
 ```bash
-# Interactive model selection
+# Auto-download & chat with HuggingFace model (recommended)
+llm-cli chat bartowski/Llama-3.2-3B-Instruct-GGUF
+
+# Auto-download with specific quantization
+llm-cli chat bartowski/Llama-3.2-3B-Instruct-GGUF/Q4_K_M.gguf
+
+# Send prompt and exit (non-interactive)
+llm-cli chat bartowski/Llama-3.2-3B-Instruct-GGUF "What is 2+2?"
+
+# Interactive model selection (from cached models)
 llm-cli chat
 
-# Run specific model by number
+# Run specific cached model by number
 llm-cli chat 1
 llm-cli c 2
 ```
@@ -248,7 +254,6 @@ Following XDG Base Directory specification:
 - `llama.cpp` (`brew install llama.cpp`)
 
 **Optional:**
-- `huggingface-cli` - For downloading models (`pip install huggingface_hub[cli]`)
 - `jq` - For full statistics features (`brew install jq`)
 
 ### Linux
@@ -258,7 +263,6 @@ Following XDG Base Directory specification:
 - For NVIDIA GPU: CUDA toolkit and drivers
 
 **Optional:**
-- `huggingface-cli` - For downloading models (`pip install huggingface_hub[cli]`)
 - `jq` - For full statistics features (`sudo apt install jq`)
 
 ## Project Structure

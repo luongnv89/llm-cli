@@ -35,6 +35,50 @@ fetch_repo_files() {
     echo "$response" | grep -o '"rfilename":"[^"]*"' | sed 's/"rfilename":"//g' | sed 's/"//g'
 }
 
+# Get HuggingFace cache directory
+get_hf_cache_dir() {
+    # Use HF_HOME if set, otherwise use standard location
+    local hf_home="${HF_HOME:-$HOME/.cache/huggingface}"
+    echo "${hf_home}/hub"
+}
+
+# Initialize HuggingFace cache directory
+init_hf_cache() {
+    local cache_dir
+    cache_dir=$(get_hf_cache_dir)
+    mkdir -p "$cache_dir"
+}
+
+# Download a file using curl
+curl_download() {
+    local url="$1"
+    local output_path="$2"
+
+    # Create output directory if needed
+    local output_dir
+    output_dir=$(dirname "$output_path")
+    mkdir -p "$output_dir"
+
+    # Download with curl - follow redirects, show progress, support resume
+    if curl -L --progress-bar --continue-at - --output "$output_path" "$url"; then
+        return 0
+    else
+        # Clean up partial download on failure
+        rm -f "$output_path"
+        return 1
+    fi
+}
+
+# Build HuggingFace CDN URL
+build_hf_url() {
+    local repo="$1"
+    local filename="$2"
+
+    # URL encode the repo and filename (simple encoding for common chars)
+    # HuggingFace URLs use forward slashes for repos and filenames
+    echo "https://huggingface.co/${repo}/resolve/main/${filename}"
+}
+
 # Select best quantization from available files
 # Prioritizes Q5_K_M > Q4_K_M > Q6_K > Q4_K_S > Q8_0 > any GGUF
 select_best_quantization() {
@@ -65,12 +109,6 @@ cmd_search() {
         echo "  llm-cli search mistral"
         echo "  llm-cli search qwen2"
         exit 1
-    fi
-
-    # Check for huggingface-cli
-    if ! command -v huggingface-cli &>/dev/null; then
-        log_warn "huggingface-cli not found. Install for download capability:"
-        log_warn "  pip install -U 'huggingface_hub[cli]'"
     fi
 
     log_info "Searching for '$query'..."
@@ -206,10 +244,8 @@ get_group_files() {
 do_download() {
     local repo="$1"
 
-    # Check for huggingface-cli
-    if ! command -v huggingface-cli &>/dev/null; then
-        die "huggingface-cli not found. Install with: pip install -U 'huggingface_hub[cli]'"
-    fi
+    # Initialize HuggingFace cache directory
+    init_hf_cache
 
     log_info "Fetching file list from $repo..."
 
@@ -333,9 +369,23 @@ download_file() {
     log_info "Downloading $filename..."
     echo ""
 
-    if huggingface-cli download "$repo" "$filename"; then
+    # Build cache path
+    local cache_dir
+    cache_dir=$(get_hf_cache_dir)
+    local model_dir="${cache_dir}/models--${repo/\//:}"
+    local output_path="${model_dir}/snapshots/main/${filename}"
+
+    # Build download URL
+    local url
+    url=$(build_hf_url "$repo" "$filename")
+
+    # Download file
+    if curl_download "$url" "$output_path"; then
         echo ""
         log_success "Download complete!"
+        echo ""
+        echo "Model saved to:"
+        echo "  $output_path"
         echo ""
         echo "Run with:"
         echo "  llm-cli chat"
@@ -367,6 +417,11 @@ download_files() {
     local success=true
     local downloaded=0
 
+    # Build cache path
+    local cache_dir
+    cache_dir=$(get_hf_cache_dir)
+    local model_dir="${cache_dir}/models--${repo/\//:}"
+
     while IFS= read -r file; do
         [ -z "$file" ] && continue
 
@@ -375,7 +430,15 @@ download_files() {
             echo -e "${DIM}[$downloaded/$file_count]${RESET} $file"
         fi
 
-        if ! huggingface-cli download "$repo" "$file"; then
+        # Build output path
+        local output_path="${model_dir}/snapshots/main/${file}"
+
+        # Build download URL
+        local url
+        url=$(build_hf_url "$repo" "$file")
+
+        # Download file
+        if ! curl_download "$url" "$output_path"; then
             log_error "Failed to download: $file"
             success=false
             break
@@ -385,6 +448,9 @@ download_files() {
     if [ "$success" = true ]; then
         echo ""
         log_success "Download complete!"
+        echo ""
+        echo "Models saved to:"
+        echo "  $model_dir/snapshots/main/"
         echo ""
         echo "Run with:"
         echo "  llm-cli chat"
