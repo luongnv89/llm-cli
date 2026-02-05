@@ -14,6 +14,18 @@
 # Claude Code
 .claude/
 
+# AI Agent configs (local only)
+.agent/
+.gemini/
+.windsurf/
+.github/prompts/
+AGENTS.md
+CLAUDE.md
+
+# Project-specific local files
+openspec/
+bin/
+
 # Temporary files
 *.tmp
 *.temp

@@ -1,4 +1,4 @@
-# Contributing to llamacpp-mac
+# Contributing to llm-cli
 
 Thank you for your interest in contributing! This document provides guidelines for contributing to the project.
 
@@ -7,8 +7,8 @@ Thank you for your interest in contributing! This document provides guidelines f
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/llamacpp-mac.git
-   cd llamacpp-mac
+   git clone https://github.com/YOUR_USERNAME/llm-cli.git
+   cd llm-cli
    ```
 3. Create a feature branch:
    ```bash
@@ -19,39 +19,36 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 ### Requirements
 
-- macOS with Apple Silicon (M1/M2/M3/M4)
+- macOS with Apple Silicon, Linux with NVIDIA GPU, or Linux CPU-only
 - Bash 3.2+ (default on macOS)
-- llama.cpp (`brew install llama.cpp`)
-- huggingface-cli (`pip install huggingface_hub[cli]`)
+- llama.cpp (`brew install llama.cpp` on macOS, build from source on Linux)
 
 ### Project Structure
 
 ```
-llamacpp-mac/
-├── llm-cli/
-│   ├── bin/llm-cli      # Main entry point
-│   ├── lib/             # Shell library modules
-│   │   ├── config.sh    # Configuration management
-│   │   ├── utils.sh     # Utilities and logging
-│   │   ├── models.sh    # Model management
-│   │   ├── download.sh  # Search and download
-│   │   ├── chat.sh      # Chat functionality
-│   │   ├── benchmark.sh # Benchmarking
-│   │   └── stats.sh     # Statistics tracking
-│   ├── completions/     # Shell completions
-│   └── install.sh       # Installation script
-└── archive/             # Deprecated scripts
+├── bin/llm-cli          # Main entry point
+├── lib/                 # Shell library modules
+│   ├── config.sh        # Configuration management
+│   ├── utils.sh         # Utilities and logging
+│   ├── models.sh        # Model management
+│   ├── download.sh      # Search and download
+│   ├── chat.sh          # Chat functionality
+│   ├── benchmark.sh     # Benchmarking
+│   ├── stats.sh         # Statistics tracking
+│   └── dev-info.sh      # Developer integration info
+├── completions/         # Shell completions
+└── install.sh           # Installation script
 ```
 
 ### Testing Changes
 
 ```bash
 # Run the CLI directly without installing
-./llm-cli/bin/llm-cli --help
+./bin/llm-cli --help
 
 # Test specific commands
-./llm-cli/bin/llm-cli models list
-./llm-cli/bin/llm-cli bench --help
+./bin/llm-cli models list
+./bin/llm-cli bench --help
 ```
 
 ## Code Style
@@ -83,37 +80,65 @@ Avoid these Bash 4+ features:
 
 ### Adding a New Command
 
-1. Create a new file in `llm-cli/lib/` or add to existing module
+1. Create a new file in `lib/` or add to existing module
 2. Add command dispatcher function `cmd_<name>()`
-3. Register in `llm-cli/bin/llm-cli` main case statement
-4. Update shell completions in `llm-cli/completions/`
-5. Document in `llm-cli/README.md`
+3. Register in `bin/llm-cli` main case statement
+4. Update shell completions in `completions/`
+5. Document in `README.md`
 
 ### Adding a New Feature
 
 1. Identify the appropriate module in `lib/`
 2. Add helper functions with descriptive names
 3. Add `--help` documentation for new options
-4. Update README if user-facing
+4. Update `README.md` if user-facing
 
 ## Submitting Changes
 
+### Branching Strategy
+
+- Create feature branches from `main`
+- Use descriptive branch names: `feature/add-export-command`, `fix/benchmark-parsing`
+- Keep branches focused on a single change
+
 ### Commit Messages
 
-Use clear, descriptive commit messages:
+Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 
 ```
-Add --output option for benchmark reports
+<type>: <description>
+
+[optional body]
+
+[optional footer]
+```
+
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation only
+- `style`: Formatting, no code change
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `test`: Adding tests
+- `chore`: Maintenance tasks
+
+**Examples:**
+```
+feat: add --output option for benchmark reports
 
 - Allow users to specify custom directory for reports
 - Update help text and completions
 - Add documentation to README
+
+fix: correct model path parsing for spaces in filenames
+
+docs: update installation instructions for Ubuntu 24.04
 ```
 
 ### Pull Request Process
 
 1. Ensure your code follows the style guidelines
-2. Test on macOS with Apple Silicon
+2. Test on your platform (macOS, Linux NVIDIA, or Linux CPU)
 3. Update documentation as needed
 4. Create a pull request with:
    - Clear title describing the change
@@ -140,6 +165,20 @@ Feature requests are welcome! Please:
 3. Explain the expected behavior
 4. Consider if it fits the project scope
 
+## Documentation
+
+When making user-facing changes:
+
+1. Update `README.md` for new features or changed behavior
+2. Update shell completions if adding commands/options
+3. Add inline help (`--help`) for new commands
+
+For architecture changes, update `docs/ARCHITECTURE.md`.
+
 ## Questions?
 
 Feel free to open an issue for questions or discussions.
+
+## Code of Conduct
+
+Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
