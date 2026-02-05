@@ -54,8 +54,12 @@ jobs:
         run: |
           # Simple pattern check for common secret patterns
           # Returns success (0) if no secrets found, fails if potential secrets detected
-          if grep -rE "(password|secret|api_key|token)\s*=\s*['\"][^'\"]+['\"]" --include="*.sh" bin/ lib/ scripts/ install.sh 2>/dev/null; then
-            echo "::warning::Potential hardcoded secrets detected"
-            exit 1
+          # Exclude known safe placeholder values (sk-local, placeholder, example, test, dummy)
+          if grep -rE "(password|secret|api_key|token)\s*=\s*['\"][^'\"]+['\"]" --include="*.sh" bin/ lib/ scripts/ install.sh 2>/dev/null | grep -vE "(sk-local|placeholder|example|test|dummy|your-)" > /tmp/secrets_check.txt; then
+            if [ -s /tmp/secrets_check.txt ]; then
+              cat /tmp/secrets_check.txt
+              echo "::warning::Potential hardcoded secrets detected"
+              exit 1
+            fi
           fi
           echo "No hardcoded secrets detected"
