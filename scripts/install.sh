@@ -74,7 +74,7 @@ detect_os() {
                 echo "linux"
             fi
             ;;
-        MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
+        MINGW* | MSYS* | CYGWIN*) echo "windows" ;;
         *) echo "unknown" ;;
     esac
 }
@@ -83,8 +83,8 @@ detect_arch() {
     local arch
     arch=$(uname -m)
     case "$arch" in
-        x86_64|amd64) echo "x86_64" ;;
-        arm64|aarch64) echo "arm64" ;;
+        x86_64 | amd64) echo "x86_64" ;;
+        arm64 | aarch64) echo "arm64" ;;
         armv7l) echo "armv7" ;;
         *) echo "$arch" ;;
     esac
@@ -124,7 +124,7 @@ get_platform_name() {
                 echo "macos-x86_64"
             fi
             ;;
-        linux|wsl)
+        linux | wsl)
             if [[ "$gpu" == "nvidia" ]]; then
                 echo "linux-${arch}-nvidia"
             else
@@ -143,7 +143,7 @@ get_llm_platform() {
 
     case "$os" in
         macos) echo "macos" ;;
-        linux|wsl)
+        linux | wsl)
             if [[ "$gpu" == "nvidia" ]]; then
                 echo "linux-nvidia"
             else
@@ -170,7 +170,7 @@ get_package_manager() {
                 echo "none"
             fi
             ;;
-        linux|wsl)
+        linux | wsl)
             if command -v apt &>/dev/null; then
                 echo "apt"
             elif command -v dnf &>/dev/null; then
@@ -248,7 +248,7 @@ install_llama_cpp_from_source() {
             sudo apt update
             sudo apt install -y build-essential cmake git curl
             ;;
-        dnf|yum)
+        dnf | yum)
             sudo "$pkg_mgr" install -y gcc-c++ cmake git curl make
             ;;
         pacman)
@@ -299,7 +299,7 @@ install_optional_deps() {
         apt)
             sudo apt install -y jq curl 2>/dev/null || true
             ;;
-        dnf|yum)
+        dnf | yum)
             sudo "$pkg_mgr" install -y jq curl 2>/dev/null || true
             ;;
         pacman)
@@ -577,7 +577,7 @@ main() {
                 do_verify=1
                 shift
                 ;;
-            --help|-h)
+            --help | -h)
                 show_help
                 exit 0
                 ;;

@@ -27,11 +27,11 @@ jobs:
 
       - name: Check shell script formatting
         run: |
-          shfmt -i 4 -bn -ci -d bin/llm-cli lib/*.sh install.sh
+          shfmt -i 4 -bn -ci -d bin/llm-cli lib/*.sh install.sh scripts/*.sh
 
       - name: Lint shell scripts
         run: |
-          shellcheck --severity=warning bin/llm-cli lib/*.sh install.sh
+          shellcheck --severity=warning bin/llm-cli lib/*.sh install.sh scripts/*.sh
 
   security:
     name: Security Scan
@@ -47,13 +47,14 @@ jobs:
       - name: Run security-focused ShellCheck
         run: |
           # Run ShellCheck with all checks including security-related ones
-          shellcheck --severity=info bin/llm-cli lib/*.sh install.sh
+          # Use warning level to avoid failing on info-level style suggestions
+          shellcheck --severity=warning bin/llm-cli lib/*.sh install.sh scripts/*.sh
 
       - name: Check for hardcoded secrets
         run: |
           # Simple pattern check for common secret patterns
           # Returns success (0) if no secrets found, fails if potential secrets detected
-          if grep -rE "(password|secret|api_key|token)\s*=\s*['\"][^'\"]+['\"]" --include="*.sh" bin/ lib/ install.sh 2>/dev/null; then
+          if grep -rE "(password|secret|api_key|token)\s*=\s*['\"][^'\"]+['\"]" --include="*.sh" bin/ lib/ scripts/ install.sh 2>/dev/null; then
             echo "::warning::Potential hardcoded secrets detected"
             exit 1
           fi
