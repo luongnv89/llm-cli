@@ -24,7 +24,6 @@ CLAUDE.md
 
 # Project-specific local files
 openspec/
-bin/
 
 # Temporary files
 *.tmp
