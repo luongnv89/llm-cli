@@ -25,7 +25,26 @@ A modular command-line tool for managing and running local LLMs with llama.cpp. 
 
 ## Installation
 
-### macOS
+### Quick Install (Recommended)
+
+One-line install that auto-detects your platform and installs all dependencies:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/luongnv89/llm-cli/main/scripts/install.sh | bash
+```
+
+This script will:
+- Detect your OS, architecture, and GPU
+- Install llama.cpp (via Homebrew on macOS, from source on Linux)
+- Install llm-cli and shell completions
+- Configure optimal settings for your hardware
+
+For detailed installation options, see [INSTALL_GUIDE.md](INSTALL_GUIDE.md).
+
+### Manual Installation
+
+<details>
+<summary>macOS</summary>
 
 ```bash
 # Install llama.cpp
@@ -34,10 +53,13 @@ brew install llama.cpp
 # Clone and install llm-cli
 git clone https://github.com/luongnv89/llm-cli.git
 cd llm-cli
-./install.sh
+./scripts/install.sh --no-deps
 ```
 
-### Ubuntu / Linux with NVIDIA GPU (DGX Spark)
+</details>
+
+<details>
+<summary>Ubuntu / Linux with NVIDIA GPU (DGX Spark)</summary>
 
 ```bash
 # Install build dependencies
@@ -54,10 +76,13 @@ sudo cp build/bin/llama-* /usr/local/bin/
 cd ..
 git clone https://github.com/luongnv89/llm-cli.git
 cd llm-cli
-./install.sh
+./scripts/install.sh --no-deps
 ```
 
-### Ubuntu / Linux (CPU-only)
+</details>
+
+<details>
+<summary>Ubuntu / Linux (CPU-only)</summary>
 
 ```bash
 # Install build dependencies
@@ -74,8 +99,10 @@ sudo cp build/bin/llama-* /usr/local/bin/
 cd ..
 git clone https://github.com/luongnv89/llm-cli.git
 cd llm-cli
-./install.sh
+./scripts/install.sh --no-deps
 ```
+
+</details>
 
 The installer creates a symlink in `~/.local/bin/`. Make sure this is in your PATH.
 
