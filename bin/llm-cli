@@ -28,6 +28,7 @@ source "$LIB_DIR/chat.sh"
 source "$LIB_DIR/benchmark.sh"
 source "$LIB_DIR/stats.sh"
 source "$LIB_DIR/dev-info.sh"
+source "$LIB_DIR/serve.sh"
 
 # Show main help
 show_help() {
@@ -46,6 +47,7 @@ ${BOLD}COMMANDS:${RESET}
     ${CYAN}stats${RESET}                   Show usage statistics
     ${CYAN}config${RESET}                  Show/edit configuration
     ${CYAN}info${RESET}                    Show developer integration information
+    ${CYAN}serve${RESET}                   Start OpenAI-compatible API server
 
 ${BOLD}MODEL MANAGEMENT:${RESET}
     llm-cli models list         List all cached models
@@ -386,6 +388,9 @@ main() {
             ;;
         info)
             cmd_info "$@"
+            ;;
+        serve | server)
+            cmd_serve "$@"
             ;;
         help)
             show_help

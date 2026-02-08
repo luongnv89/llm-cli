@@ -213,6 +213,45 @@ llm-cli stats
 llm-cli stats --clear
 ```
 
+### API Server
+
+Start an OpenAI-compatible API server for use with any application that supports the OpenAI API format:
+
+```bash
+# Start server with interactive model selection
+llm-cli serve
+
+# Start server with specific cached model
+llm-cli serve 1
+
+# Start with custom port
+llm-cli serve 1 --port 8080
+
+# Allow remote connections
+llm-cli serve 1 --host 0.0.0.0
+
+# Run in background
+llm-cli serve 1 --background
+llm-cli serve --status
+llm-cli serve --stop
+
+# View server logs
+llm-cli serve --logs
+
+# Auto-download and serve HuggingFace model
+llm-cli serve bartowski/Llama-3.2-3B-Instruct-GGUF
+```
+
+The server exposes these OpenAI-compatible endpoints:
+- `POST /v1/chat/completions` - Chat completions (streaming supported)
+- `POST /v1/completions` - Text completions
+- `POST /v1/embeddings` - Generate embeddings
+- `GET /v1/models` - List loaded models
+- `GET /health` - Health check
+- `GET /metrics` - Prometheus metrics
+
+For detailed server documentation including client integration examples, see [docs/SERVER.md](docs/SERVER.md).
+
 ### Configuration
 
 ```bash
@@ -397,11 +436,15 @@ Following XDG Base Directory specification:
 │   ├── chat.sh          # Chat/conversation
 │   ├── benchmark.sh     # Benchmarking
 │   ├── stats.sh         # Statistics tracking
-│   └── dev-info.sh      # Developer integration info
+│   ├── dev-info.sh      # Developer integration info
+│   └── serve.sh         # API server management
 ├── completions/
 │   ├── llm-cli.bash     # Bash completion
 │   └── llm-cli.zsh      # Zsh completion
-├── install.sh           # Cross-platform installation script
+├── scripts/
+│   └── install.sh       # Cross-platform installation script
+├── docs/
+│   └── SERVER.md        # API server documentation
 └── README.md
 ```
 
