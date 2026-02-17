@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none">
+  <!-- Padded app icon square -->
+  <rect width="96" height="96" rx="20" fill="#000000"/>
+
+  <!-- Terminal chevron -->
+  <polyline points="20,34 36,48 20,62" stroke="#22C55E" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Neural nodes -->
+  <circle cx="62" cy="30" r="4.5" fill="#22C55E"/>
+  <circle cx="78" cy="30" r="4.5" fill="#6B7280"/>
+  <circle cx="54" cy="48" r="4.5" fill="#FFFFFF"/>
+  <circle cx="70" cy="48" r="4.5" fill="#22C55E"/>
+  <circle cx="62" cy="66" r="4.5" fill="#22C55E"/>
+  <circle cx="78" cy="66" r="4.5" fill="#6B7280"/>
+
+  <!-- Connections -->
+  <line x1="62" y1="30" x2="54" y2="48" stroke="#22C55E" stroke-width="1.8" stroke-opacity="0.7"/>
+  <line x1="78" y1="30" x2="70" y2="48" stroke="#6B7280" stroke-width="1.8" stroke-opacity="0.5"/>
+  <line x1="62" y1="30" x2="70" y2="48" stroke="#6B7280" stroke-width="1.8" stroke-opacity="0.4"/>
+  <line x1="78" y1="30" x2="54" y2="48" stroke="#6B7280" stroke-width="1.8" stroke-opacity="0.3"/>
+  <line x1="54" y1="48" x2="62" y2="66" stroke="#22C55E" stroke-width="1.8" stroke-opacity="0.7"/>
+  <line x1="70" y1="48" x2="78" y2="66" stroke="#6B7280" stroke-width="1.8" stroke-opacity="0.5"/>
+  <line x1="54" y1="48" x2="78" y2="66" stroke="#6B7280" stroke-width="1.8" stroke-opacity="0.3"/>
+  <line x1="70" y1="48" x2="62" y2="66" stroke="#6B7280" stroke-width="1.8" stroke-opacity="0.4"/>
+</svg>

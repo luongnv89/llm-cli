@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64" fill="none">
+  <!-- Background -->
+  <rect width="280" height="64" rx="0" fill="transparent"/>
+
+  <!-- Mark: rounded square terminal frame -->
+  <rect x="0" y="0" width="64" height="64" rx="12" fill="#000000"/>
+
+  <!-- Terminal prompt chevron (>) -->
+  <polyline points="14,22 26,32 14,42" stroke="#22C55E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Neural node dots -->
+  <circle cx="42" cy="20" r="3" fill="#22C55E"/>
+  <circle cx="54" cy="20" r="3" fill="#6B7280"/>
+  <circle cx="36" cy="32" r="3" fill="#FFFFFF"/>
+  <circle cx="48" cy="32" r="3" fill="#22C55E"/>
+  <circle cx="42" cy="44" r="3" fill="#22C55E"/>
+  <circle cx="54" cy="44" r="3" fill="#6B7280"/>
+
+  <!-- Connecting lines -->
+  <line x1="42" y1="20" x2="36" y2="32" stroke="#22C55E" stroke-width="1.5" stroke-opacity="0.7"/>
+  <line x1="54" y1="20" x2="48" y2="32" stroke="#6B7280" stroke-width="1.5" stroke-opacity="0.5"/>
+  <line x1="42" y1="20" x2="48" y2="32" stroke="#6B7280" stroke-width="1.5" stroke-opacity="0.4"/>
+  <line x1="54" y1="20" x2="36" y2="32" stroke="#6B7280" stroke-width="1.5" stroke-opacity="0.3"/>
+  <line x1="36" y1="32" x2="42" y2="44" stroke="#22C55E" stroke-width="1.5" stroke-opacity="0.7"/>
+  <line x1="48" y1="32" x2="54" y2="44" stroke="#6B7280" stroke-width="1.5" stroke-opacity="0.5"/>
+  <line x1="36" y1="32" x2="54" y2="44" stroke="#6B7280" stroke-width="1.5" stroke-opacity="0.3"/>
+  <line x1="48" y1="32" x2="42" y2="44" stroke="#6B7280" stroke-width="1.5" stroke-opacity="0.4"/>
+
+  <!-- Wordmark: "llm" in green, "-cli" in white -->
+  <text x="80" y="40" font-family="'SF Mono', 'Geist Mono', 'Fira Mono', monospace" font-weight="700" font-size="26" fill="#22C55E">llm</text>
+  <text x="147" y="40" font-family="'SF Mono', 'Geist Mono', 'Fira Mono', monospace" font-weight="400" font-size="26" fill="#6B7280">-cli</text>
+</svg>

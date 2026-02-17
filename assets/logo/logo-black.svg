@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Black version: for light backgrounds -->
+  <!-- Terminal frame in black outline -->
+  <rect x="1" y="1" width="62" height="62" rx="11" stroke="#000000" stroke-width="2"/>
+
+  <!-- Chevron in dark green (on light bg) -->
+  <polyline points="14,22 26,32 14,42" stroke="#16A34A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Neural nodes in black/dark -->
+  <circle cx="42" cy="20" r="3" fill="#16A34A"/>
+  <circle cx="54" cy="20" r="3" fill="#374151"/>
+  <circle cx="36" cy="32" r="3" fill="#000000"/>
+  <circle cx="48" cy="32" r="3" fill="#16A34A"/>
+  <circle cx="42" cy="44" r="3" fill="#16A34A"/>
+  <circle cx="54" cy="44" r="3" fill="#374151"/>
+
+  <!-- Connections -->
+  <line x1="42" y1="20" x2="36" y2="32" stroke="#16A34A" stroke-width="1.5" stroke-opacity="0.7"/>
+  <line x1="54" y1="20" x2="48" y2="32" stroke="#374151" stroke-width="1.5" stroke-opacity="0.5"/>
+  <line x1="42" y1="20" x2="48" y2="32" stroke="#374151" stroke-width="1.5" stroke-opacity="0.4"/>
+  <line x1="54" y1="20" x2="36" y2="32" stroke="#374151" stroke-width="1.5" stroke-opacity="0.3"/>
+  <line x1="36" y1="32" x2="42" y2="44" stroke="#16A34A" stroke-width="1.5" stroke-opacity="0.7"/>
+  <line x1="48" y1="32" x2="54" y2="44" stroke="#374151" stroke-width="1.5" stroke-opacity="0.5"/>
+  <line x1="36" y1="32" x2="54" y2="44" stroke="#374151" stroke-width="1.5" stroke-opacity="0.3"/>
+  <line x1="48" y1="32" x2="42" y2="44" stroke="#374151" stroke-width="1.5" stroke-opacity="0.4"/>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none">
+  <!-- Compact favicon: black square with green chevron -->
+  <rect width="16" height="16" rx="3" fill="#000000"/>
+  <!-- Chevron prompt -->
+  <polyline points="3,5 6.5,8 3,11" stroke="#22C55E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Two stacked dots for LLM hint -->
+  <circle cx="11" cy="6" r="1.5" fill="#22C55E"/>
+  <circle cx="11" cy="10" r="1.5" fill="#6B7280"/>
+</svg>

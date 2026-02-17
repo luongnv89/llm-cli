@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>llm-cli Logo Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'SF Mono', 'Geist Mono', monospace; }
+
+  .section { padding: 40px; }
+  .dark  { background: #0A0A0A; color: #fff; }
+  .light { background: #FFFFFF; color: #000; }
+  .gray  { background: #F3F4F6; color: #000; }
+
+  h2 { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 24px; opacity: 0.4; }
+  .row { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .label { font-size: 10px; opacity: 0.4; }
+
+  img, object { display: block; }
+</style>
+</head>
+<body>
+
+<!-- DARK BACKGROUND -->
+<div class="section dark">
+  <h2>Dark Background (#0A0A0A)</h2>
+  <div class="row">
+    <div class="item">
+      <img src="logo-full.svg" width="280" height="64"/>
+      <span class="label">logo-full</span>
+    </div>
+    <div class="item">
+      <img src="logo-mark.svg" width="64" height="64"/>
+      <span class="label">logo-mark</span>
+    </div>
+    <div class="item">
+      <img src="logo-icon.svg" width="96" height="96"/>
+      <span class="label">logo-icon</span>
+    </div>
+    <div class="item">
+      <img src="logo-white.svg" width="64" height="64"/>
+      <span class="label">logo-white</span>
+    </div>
+    <div class="item">
+      <img src="favicon.svg" width="32" height="32"/>
+      <span class="label">favicon (2x)</span>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHT BACKGROUND -->
+<div class="section light">
+  <h2>Light Background (#FFFFFF)</h2>
+  <div class="row">
+    <div class="item">
+      <img src="logo-wordmark.svg" width="200" height="48"/>
+      <span class="label">logo-wordmark</span>
+    </div>
+    <div class="item">
+      <img src="logo-black.svg" width="64" height="64"/>
+      <span class="label">logo-black</span>
+    </div>
+    <div class="item">
+      <img src="logo-mark.svg" width="64" height="64"/>
+      <span class="label">logo-mark</span>
+    </div>
+    <div class="item">
+      <img src="favicon.svg" width="32" height="32"/>
+      <span class="label">favicon (2x)</span>
+    </div>
+  </div>
+</div>
+
+<!-- GRAY BACKGROUND -->
+<div class="section gray">
+  <h2>Neutral Background (#F3F4F6)</h2>
+  <div class="row">
+    <div class="item">
+      <img src="logo-full.svg" width="280" height="64"/>
+      <span class="label">logo-full</span>
+    </div>
+    <div class="item">
+      <img src="logo-icon.svg" width="64" height="64"/>
+      <span class="label">logo-icon (64px)</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
