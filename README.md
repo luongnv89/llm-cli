@@ -2,6 +2,10 @@
 
 <p align="center">
   <img src="assets/logo/logo-full.svg" alt="llm-cli" width="280"/>
+  <br/>
+  <em>Run local LLMs from your terminal. No cloud. No limits.</em>
+  <br/>
+  <sub>Powered by models from <a href="https://huggingface.co">🤗 Hugging Face</a></sub>
 </p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
