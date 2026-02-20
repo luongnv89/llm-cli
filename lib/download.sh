@@ -132,6 +132,40 @@ fetch_repo_files() {
     echo "$response" | grep -o '"rfilename":"[^"]*"' | sed 's/"rfilename":"//g' | sed 's/"//g'
 }
 
+# Fetch list of files with sizes from a repository using the tree API
+# Output format: size<TAB>filename (one per line)
+fetch_repo_files_with_sizes() {
+    local repo="$1"
+
+    local url="https://huggingface.co/api/models/${repo}/tree/main"
+    local response
+    response=$(curl -s "$url" 2>/dev/null)
+
+    # Check for error
+    if echo "$response" | grep -q '"error"'; then
+        return 1
+    fi
+
+    # Extract top-level "size" and "path" pairs from JSON array
+    # Strategy: split on {"type" to isolate each file entry, avoiding
+    # nested lfs objects that also contain "size" fields
+    echo "$response" | sed 's/{"type"/\n{"type"/g' | while IFS= read -r entry; do
+        # Skip entries without path
+        echo "$entry" | grep -q '"path"' || continue
+
+        local path
+        path=$(echo "$entry" | grep -o '"path":"[^"]*"' | sed 's/"path":"//;s/"$//')
+
+        # Get the first "size" before any "lfs" block (top-level size)
+        local size
+        size=$(echo "$entry" | sed 's/"lfs":.*//' | grep -o '"size":[0-9]*' | head -1 | sed 's/"size"://')
+
+        if [ -n "$path" ] && [ -n "$size" ]; then
+            printf '%s\t%s\n' "$size" "$path"
+        fi
+    done
+}
+
 # Get HuggingFace cache directory
 get_hf_cache_dir() {
     # Use HF_HOME if set, otherwise use standard location
@@ -146,23 +180,78 @@ init_hf_cache() {
     mkdir -p "$cache_dir"
 }
 
-# Download a file using curl
+# Background progress monitor for curl downloads
+# Checks file size on disk and displays progress
+_curl_download_monitor() {
+    local file_path="$1"
+    local total_size="$2"
+    local total_str="$3"
+
+    while true; do
+        sleep 1
+        if [ -f "$file_path" ]; then
+            # Get current file size (macOS stat vs Linux stat)
+            local current_size
+            current_size=$(stat -f%z "$file_path" 2>/dev/null || stat -c%s "$file_path" 2>/dev/null || echo 0)
+            if [ "$current_size" -gt 0 ] 2>/dev/null; then
+                local dl_str
+                dl_str=$(format_size "$current_size")
+                local pct
+                pct=$((current_size * 100 / total_size))
+                printf "\r  %s / %s  (%d%%)" "$dl_str" "$total_str" "$pct" >&2
+            fi
+        fi
+    done
+}
+
+# Download a file using curl with size progress
+# Usage: curl_download <url> <output_path> [total_size_bytes]
 curl_download() {
     local url="$1"
     local output_path="$2"
+    local total_size="${3:-}"
 
     # Create output directory if needed
     local output_dir
     output_dir=$(dirname "$output_path")
     mkdir -p "$output_dir"
 
-    # Download with curl - follow redirects, show progress, support resume
-    if curl -L --progress-bar --continue-at - --output "$output_path" "$url"; then
-        return 0
+    if [ -n "$total_size" ] && [ "$total_size" -gt 0 ] 2>/dev/null; then
+        local total_str
+        total_str=$(format_size "$total_size")
+
+        # Start a background progress monitor that checks actual file size on disk
+        _curl_download_monitor "$output_path" "$total_size" "$total_str" &
+        local monitor_pid=$!
+
+        # Ensure monitor is killed on interrupt (Ctrl+C) or exit
+        trap 'kill '"$monitor_pid"' 2>/dev/null || true; wait '"$monitor_pid"' 2>/dev/null || true; printf "\r%*s\r" 40 "" >&2; trap - INT TERM EXIT' INT TERM EXIT
+
+        # Download with curl - follow redirects, support resume, silent mode
+        local curl_exit=0
+        curl -L -s --continue-at - --output "$output_path" "$url" || curl_exit=$?
+
+        # Clean up monitor and reset trap
+        kill "$monitor_pid" 2>/dev/null || true
+        wait "$monitor_pid" 2>/dev/null || true
+        trap - INT TERM EXIT
+
+        if [ "$curl_exit" -eq 0 ]; then
+            printf "\r  %s / %s  (100%%)    \n" "$total_str" "$total_str" >&2
+            return 0
+        else
+            printf "\r%*s\r" 40 "" >&2
+            rm -f "$output_path"
+            return 1
+        fi
     else
-        # Clean up partial download on failure
-        rm -f "$output_path"
-        return 1
+        # No size info, use default curl progress bar
+        if curl -L --progress-bar --continue-at - --output "$output_path" "$url"; then
+            return 0
+        else
+            rm -f "$output_path"
+            return 1
+        fi
     fi
 }
 
@@ -305,6 +394,34 @@ cmd_download() {
     do_download "$repo"
 }
 
+# Look up file size from size data (size_data format: size<TAB>filename per line)
+# Returns the size in bytes, or empty string if not found
+lookup_file_size() {
+    local size_data="$1"
+    local filename="$2"
+
+    echo "$size_data" | grep "	${filename}$" | head -1 | cut -f1
+}
+
+# Compute total size for a list of files from size data
+# Returns total bytes
+compute_group_size() {
+    local size_data="$1"
+    local files="$2"
+    local total=0
+
+    while IFS= read -r file; do
+        [ -z "$file" ] && continue
+        local sz
+        sz=$(lookup_file_size "$size_data" "$file")
+        if [ -n "$sz" ]; then
+            total=$((total + sz))
+        fi
+    done <<<"$files"
+
+    echo "$total"
+}
+
 # Group GGUF files by quantization type
 # For split models like Q5_K_M-00001-of-00002.gguf, groups all parts together
 # Bash 3.2 compatible (no associative arrays)
@@ -354,12 +471,17 @@ do_download() {
 
     log_info "Fetching file list from $repo..."
 
-    local files
-    files=$(fetch_repo_files "$repo")
+    # Fetch files with sizes from tree API
+    local size_data
+    size_data=$(fetch_repo_files_with_sizes "$repo")
 
-    if [ -z "$files" ]; then
+    if [ -z "$size_data" ]; then
         die "Could not fetch files from repository: $repo"
     fi
+
+    # Extract just filenames (second column)
+    local files
+    files=$(echo "$size_data" | cut -f2)
 
     # Check for GGUF files
     local gguf_files
@@ -403,27 +525,44 @@ do_download() {
             local file_count
             file_count=$(echo "$group_files" | wc -l | tr -d ' ')
 
+            # Compute total size for the group
+            local group_size
+            group_size=$(compute_group_size "$size_data" "$group_files")
+            local size_str=""
+            if [ "$group_size" -gt 0 ] 2>/dev/null; then
+                size_str=" $(format_size "$group_size")"
+            fi
+
             # Extract quant type for display
             local quant_type
-            quant_type=$(echo "$group" | grep -oE 'MXFP4|Q[0-9]+_K_[A-Z]+|Q[0-9]+_[0-9]+|Q[0-9]+_K|IQ[0-9]+_[A-Z]+|UD-Q[0-9]+_K_[A-Z]+|F16' | head -1 || echo "unknown")
+            quant_type=$(echo "$group" | grep -oiE 'MXFP4|UD-[UI]?Q[0-9]+_K_[A-Za-z]+|[UI]?Q[0-9]+_K_[A-Za-z]+|[UI]?Q[0-9]+_[0-9A-Za-z]+|[UI]?Q[0-9]+_K|[BF]+16' | head -1 || echo "unknown")
 
             QUANT_OPTIONS[$i]="$group"
             QUANT_FILES[$i]="$group_files"
 
             if [ "$file_count" -gt 1 ]; then
-                echo -e "  ${CYAN}$i)${RESET} $quant_type ${DIM}($file_count parts)${RESET}"
+                echo -e "  ${CYAN}$i)${RESET} $quant_type ${DIM}($file_count parts,${size_str})${RESET}"
             else
-                echo -e "  ${CYAN}$i)${RESET} $group"
+                echo -e "  ${CYAN}$i)${RESET} $group ${DIM}(${size_str})${RESET}"
             fi
             ((i++))
         done <<<"$groups"
     else
-        # Single files, show directly
+        # Single files, show directly with size
         while IFS= read -r file; do
             [ -z "$file" ] && continue
             QUANT_OPTIONS[$i]="$file"
             QUANT_FILES[$i]="$file"
-            echo -e "  ${CYAN}$i)${RESET} $file"
+
+            # Look up file size
+            local file_size
+            file_size=$(lookup_file_size "$size_data" "$file")
+            local size_str=""
+            if [ -n "$file_size" ] && [ "$file_size" -gt 0 ] 2>/dev/null; then
+                size_str=" ($(format_size "$file_size"))"
+            fi
+
+            echo -e "  ${CYAN}$i)${RESET} $file${DIM}${size_str}${RESET}"
             ((i++))
         done <<<"$gguf_files"
     fi
@@ -445,12 +584,12 @@ do_download() {
     if [ -n "$recommended_idx" ]; then
         local rec_opt="${QUANT_OPTIONS[$recommended_idx]}"
         local quant_type
-        quant_type=$(echo "$rec_opt" | grep -oE 'MXFP4|Q[0-9]+_K_[A-Z]+|Q[0-9]+_[0-9]+|Q[0-9]+_K' | head -1 || echo "recommended")
+        quant_type=$(echo "$rec_opt" | grep -oiE 'MXFP4|[UI]?Q[0-9]+_K_[A-Za-z]+|[UI]?Q[0-9]+_[0-9A-Za-z]+|[UI]?Q[0-9]+_K|[BF]+16' | head -1 || echo "recommended")
         log_info "Recommended: $quant_type"
         echo ""
 
         if confirm "Download recommended ($quant_type)?" "y"; then
-            download_files "$repo" "${QUANT_FILES[$recommended_idx]}"
+            download_files "$repo" "${QUANT_FILES[$recommended_idx]}" "$size_data"
             return
         fi
     fi
@@ -462,7 +601,7 @@ do_download() {
         die "Invalid selection"
     fi
 
-    download_files "$repo" "${QUANT_FILES[$choice]}"
+    download_files "$repo" "${QUANT_FILES[$choice]}" "$size_data"
 }
 
 # Download a specific file
@@ -503,19 +642,35 @@ download_file() {
 }
 
 # Download multiple files (for split models)
+# Usage: download_files <repo> <files> [size_data]
 download_files() {
     local repo="$1"
     local files="$2"
+    local size_data="${3:-}"
 
     # Count files
     local file_count
     file_count=$(echo "$files" | grep -c '.' || echo 0)
 
+    # Compute total download size
+    local total_download_size=0
+    if [ -n "$size_data" ]; then
+        total_download_size=$(compute_group_size "$size_data" "$files")
+    fi
+
     echo ""
     if [ "$file_count" -gt 1 ]; then
-        log_info "Downloading $file_count files..."
+        if [ "$total_download_size" -gt 0 ] 2>/dev/null; then
+            log_info "Downloading $file_count files ($(format_size "$total_download_size"))..."
+        else
+            log_info "Downloading $file_count files..."
+        fi
     else
-        log_info "Downloading..."
+        if [ "$total_download_size" -gt 0 ] 2>/dev/null; then
+            log_info "Downloading ($(format_size "$total_download_size"))..."
+        else
+            log_info "Downloading..."
+        fi
     fi
     echo ""
 
@@ -530,9 +685,19 @@ download_files() {
     while IFS= read -r file; do
         [ -z "$file" ] && continue
 
+        # Look up individual file size
+        local file_size=""
+        if [ -n "$size_data" ]; then
+            file_size=$(lookup_file_size "$size_data" "$file")
+        fi
+
         if [ "$file_count" -gt 1 ]; then
             ((downloaded++))
-            echo -e "${DIM}[$downloaded/$file_count]${RESET} $file"
+            local file_size_str=""
+            if [ -n "$file_size" ] && [ "$file_size" -gt 0 ] 2>/dev/null; then
+                file_size_str=" ($(format_size "$file_size"))"
+            fi
+            echo -e "${DIM}[$downloaded/$file_count]${RESET} $file${DIM}${file_size_str}${RESET}"
         fi
 
         # Build output path
@@ -542,8 +707,8 @@ download_files() {
         local url
         url=$(build_hf_url "$repo" "$file")
 
-        # Download file
-        if ! curl_download "$url" "$output_path"; then
+        # Download file with size info
+        if ! curl_download "$url" "$output_path" "$file_size"; then
             log_error "Failed to download: $file"
             success=false
             break

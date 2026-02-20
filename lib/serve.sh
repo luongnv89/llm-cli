@@ -191,6 +191,84 @@ display_serve_config() {
     fi
 }
 
+# Display usage guide after server starts
+# Shows how to use the server as an OpenAI-compatible endpoint
+render_serve_usage_guide() {
+    local endpoint="$1"
+    local model_name="$2"
+    local api_key="$3"
+    local mode="$4" # "foreground" or "background"
+
+    local api_key_value
+    if [[ -n "$api_key" ]]; then
+        api_key_value="$api_key"
+    else
+        api_key_value="sk-local"
+    fi
+
+    # For background mode, try to get the actual model ID from the running server
+    local model_id="$model_name"
+    if [[ "$mode" == "background" ]]; then
+        local fetched_model
+        fetched_model=$(get_available_models "$endpoint" 2 | head -1)
+        if [[ -n "$fetched_model" ]]; then
+            model_id="$fetched_model"
+        fi
+    fi
+
+    echo ""
+    print_line "=" 60
+    echo -e "${BOLD}  Usage Guide — OpenAI-Compatible API${RESET}"
+    print_line "=" 60
+    echo ""
+    echo -e "  ${BOLD}Base URL:${RESET}  ${CYAN}${endpoint}/v1${RESET}"
+    echo -e "  ${BOLD}API Key:${RESET}   ${api_key_value}"
+    echo -e "  ${BOLD}Model:${RESET}     ${model_id}"
+    echo ""
+
+    # Quick test with curl
+    echo -e "${BOLD}Quick Test:${RESET}"
+    echo ""
+    if [[ -n "$api_key" ]]; then
+        cat <<EOF
+  curl -s ${endpoint}/v1/chat/completions \\
+    -H "Content-Type: application/json" \\
+    -H "Authorization: Bearer ${api_key_value}" \\
+    -d '{
+      "model": "${model_id}",
+      "messages": [{"role": "user", "content": "Hello!"}]
+    }'
+EOF
+    else
+        cat <<EOF
+  curl -s ${endpoint}/v1/chat/completions \\
+    -H "Content-Type: application/json" \\
+    -d '{
+      "model": "${model_id}",
+      "messages": [{"role": "user", "content": "Hello!"}]
+    }'
+EOF
+    fi
+
+    # Python example
+    echo ""
+    echo -e "${BOLD}Python (openai SDK):${RESET}"
+    cat <<EOF
+
+  from openai import OpenAI
+  client = OpenAI(base_url="${endpoint}/v1", api_key="${api_key_value}")
+  r = client.chat.completions.create(
+      model="${model_id}",
+      messages=[{"role": "user", "content": "Hello!"}],
+  )
+  print(r.choices[0].message.content)
+EOF
+
+    echo ""
+    echo -e "${DIM}Run 'llm-cli info --format examples' for more examples (Node.js, cURL).${RESET}"
+    echo ""
+}
+
 # Build llama-server command arguments
 build_server_args() {
     local model_path="$1"
@@ -229,6 +307,10 @@ start_server_foreground() {
     local gpu_layers="$6"
     local parallel="$7"
     local api_key="$8"
+
+    # Show usage guide before server takes over the terminal
+    local endpoint="http://${host}:${port}"
+    render_serve_usage_guide "$endpoint" "$SERVE_MODEL_NAME" "$api_key" "foreground"
 
     print_line "-" 60
     echo -e "${BOLD}Starting llama-server...${RESET}"
@@ -302,6 +384,9 @@ start_server_background() {
         echo "  llm-cli serve --status  Check server status"
         echo "  llm-cli serve --logs    View server logs"
         echo "  llm-cli serve --stop    Stop the server"
+
+        # Show usage guide with actual model info from running server
+        render_serve_usage_guide "$endpoint" "$SERVE_MODEL_NAME" "$api_key" "background"
     else
         log_error "Server failed to start within 30 seconds"
         echo "Check logs: cat $SERVER_LOG_FILE" >&2

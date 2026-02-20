@@ -178,22 +178,36 @@ EOF
 # Render Anthropic/Claude Code configuration
 render_anthropic_config() {
     local endpoint="$1"
+
+    # Try to get model name from running server
+    local model_name
+    model_name=$(get_available_models "$endpoint" 2 | head -1)
+    if [[ -z "$model_name" ]]; then
+        model_name="<your-model-name>"
+    fi
+
     cat <<EOF
-${BOLD}Claude Code / Anthropic Integration${RESET}
+${BOLD}OpenAI-Compatible API Configuration${RESET}
 =====================================
-Provider:      OpenAI-compatible
-Endpoint:      ${CYAN}${endpoint}/v1${RESET}
-Model:         local-gguf (or your model name)
-API Key:       sk-local (or dummy key)
 
-${DIM}Setup in Claude Code:${RESET}
-  1. Go to Settings → Custom API
-  2. Select Provider: OpenAI
-  3. Enter Endpoint: ${endpoint}/v1
-  4. Set Model: local-gguf
-  5. Set API Key: sk-local
+${BOLD}Note:${RESET} llm-cli serve provides an OpenAI-compatible API endpoint.
+Use it with any tool that supports the OpenAI API format.
 
-Claude Code will use your local GGUF model for code completion and chat.
+${BOLD}Connection:${RESET}
+  Base URL:  ${CYAN}${endpoint}/v1${RESET}
+  API Key:   sk-local (or your --api-key value)
+  Model:     ${model_name}
+
+${BOLD}Quick Test:${RESET}
+  curl -s ${endpoint}/v1/chat/completions \\
+    -H "Content-Type: application/json" \\
+    -d '{
+      "model": "${model_name}",
+      "messages": [{"role": "user", "content": "Hello!"}]
+    }'
+
+${DIM}Run 'llm-cli info --format openai' for full OpenAI config.
+Run 'llm-cli info --format examples' for Python, Node.js, and cURL examples.${RESET}
 EOF
 }
 
