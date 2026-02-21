@@ -102,9 +102,8 @@ detect_gpu() {
 
 detect_distro() {
     if [[ -f /etc/os-release ]]; then
-        # shellcheck disable=SC1091
-        source /etc/os-release
-        echo "${ID:-unknown}"
+        # Parse ID= without sourcing (avoids readonly variable conflicts)
+        grep -m1 "^ID=" /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "unknown"
     else
         echo "unknown"
     fi
