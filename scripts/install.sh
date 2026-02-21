@@ -48,6 +48,12 @@ CONFIG_DIR="${HOME}/.config/llm-cli"
 INSTALL_DEPS=1
 INSTALL_COMPLETIONS=1
 
+# Detect if running from curl pipe (stdin is not a terminal)
+IS_PIPED=0
+if [[ ! -t 0 ]]; then
+    IS_PIPED=1
+fi
+
 #######################################
 # Logging Functions
 #######################################
@@ -342,9 +348,9 @@ install_from_git() {
     if [[ -d "$clone_dir" ]]; then
         log_info "Updating existing installation..."
         cd "$clone_dir"
-        git pull --ff-only origin main
+        git pull --ff-only origin main </dev/null
     else
-        git clone "$GITHUB_URL" "$clone_dir"
+        git clone "$GITHUB_URL" "$clone_dir" </dev/null
     fi
 
     echo "$clone_dir"
@@ -654,8 +660,12 @@ main() {
     step=$((step + 1))
     log_step $step $total_steps "Checking llama.cpp..."
     if ! check_dependency llama-cli; then
-        if [[ $INSTALL_DEPS -eq 1 ]]; then
+        if [[ $INSTALL_DEPS -eq 1 ]] && [[ $IS_PIPED -eq 0 ]]; then
             install_llama_cpp
+        elif [[ $IS_PIPED -eq 1 ]]; then
+            log_warn "llama-cli not found. Install it separately (cannot run sudo in piped mode):"
+            log_warn "  brew install llama.cpp  # macOS"
+            log_warn "  # Or build from source: https://github.com/ggerganov/llama.cpp"
         else
             log_warn "llama-cli not found. Install manually or run without --no-deps"
         fi
@@ -666,8 +676,10 @@ main() {
     # Step 3: Install optional dependencies
     step=$((step + 1))
     log_step $step $total_steps "Installing optional dependencies..."
-    if [[ $INSTALL_DEPS -eq 1 ]]; then
+    if [[ $INSTALL_DEPS -eq 1 ]] && [[ $IS_PIPED -eq 0 ]]; then
         install_optional_deps
+    elif [[ $IS_PIPED -eq 1 ]]; then
+        log_info "Skipped (piped mode — install jq and curl manually if needed)"
     else
         log_info "Skipped (--no-deps)"
     fi
