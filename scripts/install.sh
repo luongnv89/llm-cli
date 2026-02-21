@@ -410,7 +410,7 @@ verify_installation() {
         log_ok "llm-cli executable found: $install_path"
     else
         log_error "llm-cli not found or not executable: $install_path"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check llm-cli runs
@@ -418,7 +418,7 @@ verify_installation() {
         log_ok "llm-cli --help works"
     else
         log_error "llm-cli --help failed"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check llama-cli dependency
@@ -638,7 +638,7 @@ main() {
 
     # Step 1: Check/Install Homebrew on macOS
     if [[ "$os" == "macos" ]] && [[ $INSTALL_DEPS -eq 1 ]]; then
-        ((step++))
+        step=$((step + 1))
         log_step $step $total_steps "Checking Homebrew..."
         if ! command -v brew &>/dev/null; then
             install_homebrew
@@ -646,12 +646,12 @@ main() {
             log_ok "Homebrew available"
         fi
     else
-        ((step++))
+        step=$((step + 1))
         log_step $step $total_steps "Skipping package manager check"
     fi
 
     # Step 2: Install/Check llama.cpp
-    ((step++))
+    step=$((step + 1))
     log_step $step $total_steps "Checking llama.cpp..."
     if ! check_dependency llama-cli; then
         if [[ $INSTALL_DEPS -eq 1 ]]; then
@@ -664,7 +664,7 @@ main() {
     fi
 
     # Step 3: Install optional dependencies
-    ((step++))
+    step=$((step + 1))
     log_step $step $total_steps "Installing optional dependencies..."
     if [[ $INSTALL_DEPS -eq 1 ]]; then
         install_optional_deps
@@ -673,7 +673,7 @@ main() {
     fi
 
     # Step 4: Install llm-cli
-    ((step++))
+    step=$((step + 1))
     log_step $step $total_steps "Installing llm-cli..."
 
     local source_dir
@@ -689,7 +689,7 @@ main() {
     log_ok "Installed: $install_path"
 
     # Step 5: Install completions
-    ((step++))
+    step=$((step + 1))
     log_step $step $total_steps "Installing shell completions..."
     if [[ $INSTALL_COMPLETIONS -eq 1 ]]; then
         install_completions "$source_dir"
