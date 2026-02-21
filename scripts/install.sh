@@ -21,7 +21,7 @@ set -euo pipefail
 # Configuration
 #######################################
 
-readonly VERSION="1.1.1"
+readonly VERSION="1.1.2"
 readonly GITHUB_REPO="luongnv89/llm-cli"
 readonly GITHUB_URL="https://github.com/${GITHUB_REPO}"
 
@@ -340,17 +340,17 @@ get_script_dir() {
 install_from_git() {
     local install_dir="$1"
 
-    log_info "Cloning llm-cli from GitHub..."
+    log_info "Cloning llm-cli from GitHub..." >&2
 
     local clone_dir="${HOME}/.local/share/llm-cli/source"
     mkdir -p "$(dirname "$clone_dir")"
 
     if [[ -d "$clone_dir" ]]; then
-        log_info "Updating existing installation..."
+        log_info "Updating existing installation..." >&2
         cd "$clone_dir"
-        git pull --ff-only origin main </dev/null
+        git pull --ff-only origin main </dev/null >&2
     else
-        git clone "$GITHUB_URL" "$clone_dir" </dev/null
+        git clone "$GITHUB_URL" "$clone_dir" </dev/null >&2
     fi
 
     echo "$clone_dir"

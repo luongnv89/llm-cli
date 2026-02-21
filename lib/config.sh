@@ -3,7 +3,7 @@
 # Handles XDG directories, config files, and default values
 
 # Version
-readonly LLM_CLI_VERSION="1.1.1"
+readonly LLM_CLI_VERSION="1.1.2"
 
 # XDG Base Directory paths
 : "${XDG_CONFIG_HOME:=$HOME/.config}"
