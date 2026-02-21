@@ -21,7 +21,7 @@ set -euo pipefail
 # Configuration
 #######################################
 
-readonly VERSION="1.0.0"
+readonly VERSION="1.1.0"
 readonly GITHUB_REPO="luongnv89/llm-cli"
 readonly GITHUB_URL="https://github.com/${GITHUB_REPO}"
 

@@ -7,12 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-02-21
+
 ### Added
+- `serve` command for OpenAI-compatible API server via llama-server
+- OpenAI-compatible usage guide shown after `serve` starts
+- Cross-platform installation script with one-line `curl` install
+- Uninstall support via `scripts/install.sh --uninstall`
+- Logo assets and README branding
+
+### Fixed
+- Use `--color auto` for newer llama-cli versions in chat command
+- Unbound variable error when chat command called with no arguments
+- Avoid sourcing `/etc/os-release` to prevent readonly variable conflict on some distros
+- CI workflow updated to include `scripts/` directory and fix formatting
+- Exclude placeholder API keys from secrets check
+- Track `bin/llm-cli` in git (was incorrectly ignored by `.gitignore`)
+
+### Changed
+- Updated README tagline and added Hugging Face attribution
 - Open source project files (CODE_OF_CONDUCT, SECURITY, templates)
 - Documentation structure (ARCHITECTURE, DEVELOPMENT, CHANGELOG)
 - GitHub issue and PR templates
-
-### Changed
 - Flattened project structure (moved from `llm-cli/` subfolder to root)
 - Updated CONTRIBUTING.md with current project info
 
