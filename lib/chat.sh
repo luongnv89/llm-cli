@@ -11,8 +11,8 @@ is_hf_model_id() {
 
 # Chat command
 cmd_chat() {
-    local model_arg="$1"
-    local prompt="$2"
+    local model_arg="${1:-}"
+    local prompt="${2:-}"
 
     # Check dependencies
     check_dependencies
@@ -94,7 +94,7 @@ cmd_chat() {
 start_chat() {
     local model_path="$1"
     local model_name="$2"
-    local prompt="$3"
+    local prompt="${3:-}"
 
     echo ""
     echo -e "${BOLD}Model:${RESET}   $model_name"
@@ -131,7 +131,7 @@ start_chat() {
             -c "$CONTEXT_SIZE" \
             -t "$THREADS" \
             -ngl "$GPU_LAYERS" \
-            --color \
+            --color auto \
             <<<"$prompt"
     else
         # Interactive mode
@@ -142,7 +142,7 @@ start_chat() {
             -c "$CONTEXT_SIZE" \
             -t "$THREADS" \
             -ngl "$GPU_LAYERS" \
-            --color \
+            --color auto \
             -cnv
     fi
 
