@@ -21,7 +21,7 @@ set -euo pipefail
 # Configuration
 #######################################
 
-readonly VERSION="1.1.2"
+readonly VERSION="1.1.3"
 readonly GITHUB_REPO="luongnv89/llm-cli"
 readonly GITHUB_URL="https://github.com/${GITHUB_REPO}"
 
@@ -656,18 +656,24 @@ main() {
         log_step $step $total_steps "Skipping package manager check"
     fi
 
+    # Track missing dependencies for post-install guide
+    local missing_llama=0
+    local missing_jq=0
+    local missing_curl=0
+
     # Step 2: Install/Check llama.cpp
     step=$((step + 1))
     log_step $step $total_steps "Checking llama.cpp..."
     if ! check_dependency llama-cli; then
         if [[ $INSTALL_DEPS -eq 1 ]] && [[ $IS_PIPED -eq 0 ]]; then
             install_llama_cpp
-        elif [[ $IS_PIPED -eq 1 ]]; then
-            log_warn "llama-cli not found. Install it separately (cannot run sudo in piped mode):"
-            log_warn "  brew install llama.cpp  # macOS"
-            log_warn "  # Or build from source: https://github.com/ggerganov/llama.cpp"
+            # Re-check after install attempt
+            if ! check_dependency llama-cli; then
+                missing_llama=1
+            fi
         else
-            log_warn "llama-cli not found. Install manually or run without --no-deps"
+            missing_llama=1
+            log_warn "llama-cli not found (required for chat, benchmark, and serve)"
         fi
     else
         log_ok "llama-cli found: $(command -v llama-cli)"
@@ -675,13 +681,18 @@ main() {
 
     # Step 3: Install optional dependencies
     step=$((step + 1))
-    log_step $step $total_steps "Installing optional dependencies..."
+    log_step $step $total_steps "Checking optional dependencies..."
     if [[ $INSTALL_DEPS -eq 1 ]] && [[ $IS_PIPED -eq 0 ]]; then
         install_optional_deps
-    elif [[ $IS_PIPED -eq 1 ]]; then
-        log_info "Skipped (piped mode — install jq and curl manually if needed)"
     else
-        log_info "Skipped (--no-deps)"
+        log_info "Skipped dependency installation (piped mode)"
+    fi
+    # Check optional deps regardless
+    if ! check_dependency jq; then
+        missing_jq=1
+    fi
+    if ! check_dependency curl; then
+        missing_curl=1
     fi
 
     # Step 4: Install llm-cli
@@ -713,13 +724,127 @@ main() {
     echo ""
     verify_installation "$install_path" || true
 
-    echo ""
-    check_path "$INSTALL_PREFIX" || true
+    # Check if PATH needs updating
+    local needs_path=0
+    if [[ ":$PATH:" != *":$INSTALL_PREFIX:"* ]]; then
+        needs_path=1
+    fi
 
-    # Platform-specific quick start
-    local llm_platform
-    llm_platform=$(get_llm_platform)
+    # Show post-install guide if anything needs attention
+    if [[ $missing_llama -eq 1 ]] || [[ $missing_jq -eq 1 ]] || [[ $missing_curl -eq 1 ]] || [[ $needs_path -eq 1 ]]; then
+        echo ""
+        echo -e "${BOLD}========================================${RESET}"
+        echo -e "${BOLD} Post-Installation Steps${RESET}"
+        echo -e "${BOLD}========================================${RESET}"
+        local step_num=0
 
+        # PATH setup
+        if [[ $needs_path -eq 1 ]]; then
+            step_num=$((step_num + 1))
+            echo ""
+            echo -e "${YELLOW}${step_num}. Add llm-cli to your PATH${RESET}"
+            echo ""
+            echo "   llm-cli was installed to ${BOLD}$INSTALL_PREFIX${RESET} which is not in your PATH."
+            echo "   Add it by running:"
+            echo ""
+
+            local shell_type
+            shell_type=$(basename "${SHELL:-bash}")
+            case "$shell_type" in
+                zsh)
+                    echo "   echo 'export PATH=\"$INSTALL_PREFIX:\$PATH\"' >> ~/.zshrc"
+                    echo "   source ~/.zshrc"
+                    ;;
+                bash)
+                    echo "   echo 'export PATH=\"$INSTALL_PREFIX:\$PATH\"' >> ~/.bashrc"
+                    echo "   source ~/.bashrc"
+                    ;;
+                fish)
+                    echo "   fish_add_path $INSTALL_PREFIX"
+                    ;;
+                *)
+                    echo "   export PATH=\"$INSTALL_PREFIX:\$PATH\""
+                    ;;
+            esac
+        fi
+
+        # llama.cpp installation
+        if [[ $missing_llama -eq 1 ]]; then
+            step_num=$((step_num + 1))
+            echo ""
+            echo -e "${YELLOW}${step_num}. Install llama.cpp (required)${RESET}"
+            echo ""
+            echo "   llama-cli is needed for chat, benchmark, and serve commands."
+            echo ""
+
+            local llm_platform
+            llm_platform=$(get_llm_platform)
+
+            case "$llm_platform" in
+                macos)
+                    echo "   ${BOLD}macOS (Homebrew):${RESET}"
+                    echo "   brew install llama.cpp"
+                    ;;
+                linux-nvidia)
+                    echo "   ${BOLD}Linux with NVIDIA GPU:${RESET}"
+                    echo "   # Install build tools"
+                    echo "   sudo apt install -y build-essential cmake git curl"
+                    echo ""
+                    echo "   # Build with CUDA support"
+                    echo "   git clone --depth 1 https://github.com/ggerganov/llama.cpp /tmp/llama-build"
+                    echo "   cd /tmp/llama-build"
+                    echo "   cmake -B build -DGGML_CUDA=ON"
+                    echo "   cmake --build build --config Release -j \$(nproc)"
+                    echo "   sudo cp build/bin/llama-* /usr/local/bin/"
+                    echo "   cd - && rm -rf /tmp/llama-build"
+                    ;;
+                linux-cpu)
+                    echo "   ${BOLD}Linux (CPU):${RESET}"
+                    echo "   # Install build tools"
+                    echo "   sudo apt install -y build-essential cmake git curl"
+                    echo ""
+                    echo "   # Build from source"
+                    echo "   git clone --depth 1 https://github.com/ggerganov/llama.cpp /tmp/llama-build"
+                    echo "   cd /tmp/llama-build"
+                    echo "   cmake -B build"
+                    echo "   cmake --build build --config Release -j \$(nproc)"
+                    echo "   sudo cp build/bin/llama-* /usr/local/bin/"
+                    echo "   cd - && rm -rf /tmp/llama-build"
+                    ;;
+            esac
+            echo ""
+            echo "   More info: https://github.com/ggerganov/llama.cpp#build"
+        fi
+
+        # Optional dependencies
+        if [[ $missing_jq -eq 1 ]] || [[ $missing_curl -eq 1 ]]; then
+            step_num=$((step_num + 1))
+            local missing_pkgs=""
+            [[ $missing_jq -eq 1 ]] && missing_pkgs="jq"
+            [[ $missing_curl -eq 1 ]] && missing_pkgs="${missing_pkgs:+$missing_pkgs }curl"
+
+            echo ""
+            echo -e "${YELLOW}${step_num}. Install optional dependencies${RESET}"
+            echo ""
+            [[ $missing_jq -eq 1 ]] && echo "   - ${BOLD}jq${RESET}: Needed for statistics and JSON processing"
+            [[ $missing_curl -eq 1 ]] && echo "   - ${BOLD}curl${RESET}: Needed for model search and download"
+            echo ""
+
+            case "$(detect_os)" in
+                macos)
+                    echo "   brew install $missing_pkgs"
+                    ;;
+                linux | wsl)
+                    echo "   sudo apt install -y $missing_pkgs"
+                    ;;
+            esac
+        fi
+
+        echo ""
+        echo -e "${BOLD}========================================${RESET}"
+    fi
+
+    # Quick start (always shown)
     echo ""
     echo -e "${BOLD}Quick Start:${RESET}"
     echo "  llm-cli --help              Show help"
@@ -727,21 +852,6 @@ main() {
     echo "  llm-cli search llama        Search for models"
     echo "  llm-cli chat                Start a conversation"
     echo ""
-
-    case "$llm_platform" in
-        linux-nvidia)
-            echo -e "${BOLD}GPU Optimization (NVIDIA):${RESET}"
-            echo "  Default threads: 10 (optimized for P-cores)"
-            echo "  GPU layers: 99 (full GPU offload)"
-            echo "  Config: ~/.config/llm-cli/config"
-            echo ""
-            ;;
-        linux-cpu)
-            echo -e "${YELLOW}Note: Running in CPU-only mode.${RESET}"
-            echo "For GPU acceleration, install NVIDIA drivers and rebuild llama.cpp with CUDA."
-            echo ""
-            ;;
-    esac
 
     log_ok "Installation complete!"
     echo ""
